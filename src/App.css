@@ -1,0 +1,4 @@
+/* App-level styles — ลบ Vite template defaults ที่ขัดกับ layout */
+#root {
+  min-height: 100vh;
+}
