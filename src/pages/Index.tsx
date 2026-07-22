@@ -375,7 +375,7 @@ const Index = () => {
   return (
     <DashboardLayout>
       {/* Hero Section */}
-      <div className="relative -mt-20 pt-24 -mx-4 sm:-mx-6 lg:-mx-8 px-4 sm:px-6 lg:px-8 pb-16 mb-12 overflow-hidden rounded-b-[60px] shadow-2xl min-h-[80vh] flex flex-col">
+      <div className="relative -mt-20 pt-6 pb-10 sm:pb-16 mb-2 sm:mb-4 overflow-hidden shadow-2xl min-h-[auto] md:min-h-[40vh] lg:min-h-[45vh] flex flex-col rounded-b-[30px] sm:rounded-b-[40px] w-full border border-slate-200 dark:border-white/10">
         <div 
           className="absolute inset-0 z-0 bg-cover bg-center contrast-[1.15] saturate-[1.3] brightness-[1.05]"
           style={{ backgroundImage: "url('/bg-building.jpg')" }}
@@ -421,7 +421,7 @@ const Index = () => {
         </div>
       </div>
 
-      <div className="mt-8">
+      <div className="mt-2 w-full">
         <BookingControls 
           selectedDate={selectedDate}
           onDateSelect={setSelectedDate}

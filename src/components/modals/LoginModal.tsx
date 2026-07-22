@@ -63,7 +63,7 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="p-0 border-0 bg-transparent shadow-none max-w-[500px] overflow-hidden !top-[40%] !translate-y-[-45%]">
+      <DialogContent className="p-0 border-0 bg-transparent shadow-none w-[95vw] sm:w-full max-w-[500px] max-h-[90vh] overflow-y-auto">
         <DialogTitle className="sr-only">เข้าสู่ระบบ</DialogTitle>
         <div className="relative rounded-3xl overflow-hidden bg-white/80 backdrop-blur-2xl border border-white/50 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
           {/* Vibrant colorful background */}
@@ -72,7 +72,7 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
           <div className="absolute -bottom-10 -left-10 w-80 h-80 bg-gradient-to-tr from-blue-400/30 to-cyan-400/30 rounded-full blur-3xl" />
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-white/40 backdrop-blur-xl" />
 
-          <div className="relative z-10 p-8 sm:p-10">
+          <div className="relative z-10 p-6 sm:p-10">
             {/* Header */}
             <div className="flex flex-col items-center mb-8">
               <div className="relative mb-5 flex justify-center items-center">
@@ -82,8 +82,8 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
                   className="relative h-24 sm:h-28 w-auto object-contain drop-shadow-md hover:scale-105 transition-transform duration-500"
                 />
               </div>
-              <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">เข้าสู่ระบบ</h2>
-              <p className="text-base text-slate-500 mt-2 font-medium">ARIT E-ROOMs · ม.ราชภัฎมหาสารคาม</p>
+              <h2 className="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight">เข้าสู่ระบบ</h2>
+              <p className="text-sm sm:text-base text-slate-500 mt-2 font-medium">ARIT E-ROOMs · ม.ราชภัฎมหาสารคาม</p>
             </div>
 
             {/* Quick-fill role hints */}
@@ -93,10 +93,10 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
                   key={h.user}
                   type="button"
                   onClick={() => fillHint(h.user, h.pass)}
-                  className={cn("flex flex-col items-center gap-1.5 p-3 rounded-2xl border transition-all duration-300 group shadow-sm hover:shadow-md", h.bg, h.border, h.hover)}
+                  className={cn("flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all duration-300 group shadow-sm hover:shadow-md", h.bg, h.border, h.hover)}
                 >
-                  <h.icon className={cn("h-6 w-6 transition-transform duration-300 group-hover:scale-110", h.color)} />
-                  <span className={cn("text-[13px] font-bold transition-colors", h.color)}>{h.label}</span>
+                  <h.icon className={cn("h-5 w-5 transition-transform duration-300 group-hover:scale-110", h.color)} />
+                  <span className={cn("text-xs font-bold transition-colors", h.color)}>{h.label}</span>
                 </button>
               ))}
             </div>
@@ -104,24 +104,24 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
             {/* Form */}
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-slate-700 text-base font-semibold ml-1">ชื่อผู้ใช้</Label>
+                <Label className="text-slate-700 text-sm font-semibold ml-1">ชื่อผู้ใช้</Label>
                 <Input
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                   placeholder="เช่น admin, staff01, student01"
-                  className="bg-white/70 border-blue-100 text-slate-800 placeholder:text-slate-400 rounded-2xl focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 h-14 text-base transition-all shadow-sm"
+                  className="bg-white/70 border-blue-100 text-slate-800 placeholder:text-slate-400 rounded-xl focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 h-11 text-sm transition-all shadow-sm"
                   autoComplete="username"
                 />
               </div>
               <div className="space-y-1.5">
-                <Label className="text-slate-700 text-base font-semibold ml-1">รหัสผ่าน</Label>
+                <Label className="text-slate-700 text-sm font-semibold ml-1">รหัสผ่าน</Label>
                 <div className="relative">
                   <Input
                     type={showPass ? 'text' : 'password'}
                     value={password}
                     onChange={e => setPassword(e.target.value)}
                     placeholder="••••••••"
-                    className="bg-white/70 border-blue-100 text-slate-800 placeholder:text-slate-400 rounded-2xl focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 h-14 text-base pr-12 transition-all shadow-sm"
+                    className="bg-white/70 border-blue-100 text-slate-800 placeholder:text-slate-400 rounded-xl focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 h-11 text-sm pr-10 transition-all shadow-sm"
                     autoComplete="current-password"
                   />
                   <button
@@ -145,7 +145,7 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
               <Button
                 type="submit"
                 disabled={loading || !username || !password}
-                className="w-full h-14 rounded-2xl font-bold text-white text-lg shadow-lg shadow-blue-500/25 transition-all duration-300 mt-8 hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400"
+                className="w-full h-11 rounded-xl font-bold text-white text-base shadow-lg shadow-blue-500/25 transition-all duration-300 mt-6 hover:scale-[1.02] active:scale-[0.98] bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400"
               >
                 {loading ? (
                   <div className="flex items-center gap-2">

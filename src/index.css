@@ -133,6 +133,7 @@
 
 html {
   scroll-behavior: smooth;
+  touch-action: manipulation;
 }
 
 /* Premium Dashboard Animations & Styles */

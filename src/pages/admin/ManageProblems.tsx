@@ -58,11 +58,11 @@ const ManageProblems = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-6 lg:p-10 rounded-[32px] shadow-2xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-800 min-h-[80vh]">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">รายการแจ้งปัญหา</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">รายการแจ้งปัญหา</h2>
         
-        <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[16px] p-1 border border-slate-100 dark:border-slate-800 shadow-sm">
           {problemFilters.map((f) => (
             <button
               key={f}
@@ -87,7 +87,7 @@ const ManageProblems = () => {
           <div className="col-span-full py-12 text-center text-gray-500 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">ไม่พบรายการแจ้งปัญหา</div>
         ) : (
           filteredProblems.map((problem) => (
-            <div key={problem.id} className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col gap-4 transition-all hover:shadow-md">
+            <div key={problem.id} className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-6 rounded-[24px] border border-slate-100 dark:border-slate-800 shadow-lg shadow-slate-200/40 dark:shadow-none flex flex-col gap-4 transition-all hover:shadow-xl hover:-translate-y-1">
               <div className="flex justify-between items-start">
                 <div className="flex gap-2 items-center">
                   <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">
@@ -102,8 +102,8 @@ const ManageProblems = () => {
               </div>
               
               <div className="flex-1">
-                <div className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900/50 p-3 rounded-lg border border-gray-100 dark:border-gray-700/50">
-                  <p className="font-medium text-xs text-gray-500 mb-1">รายละเอียด:</p>
+                <div className="text-sm text-slate-700 dark:text-slate-300 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-100 dark:border-slate-700/50">
+                  <p className="font-medium text-xs text-slate-500 mb-1">รายละเอียด:</p>
                   <p>{problem.details}</p>
                   <p className="font-medium text-xs text-gray-500 mt-2 mb-1">ห้อง:</p>
                   <p>{problem.roomId}</p>

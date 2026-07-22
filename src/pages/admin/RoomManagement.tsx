@@ -123,14 +123,14 @@ const RoomManagement = () => {
         {isLoading ? (
           <div className="col-span-full text-center py-10 text-slate-500">กำลังโหลดข้อมูลห้องประชุม...</div>
         ) : filteredRooms.map((room) => (
-          <Card key={room.id} className="overflow-hidden border-0 shadow-xl shadow-slate-200/40 dark:shadow-none bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[24px] group">
+          <Card key={room.id} className="overflow-hidden border border-slate-100 dark:border-slate-800 shadow-lg shadow-slate-200/40 dark:shadow-none bg-white dark:bg-slate-900 rounded-[24px] group hover:shadow-xl transition-all">
             {/* Image Thumbnail */}
-            <div className="h-48 relative overflow-hidden">
+            <div className="h-48 relative overflow-hidden bg-slate-100 dark:bg-slate-800">
               <img src={room.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800"} alt={room.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
               
               <div className="absolute top-4 right-4 flex gap-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-md border ${room.status === 'available' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' : 'bg-rose-500/20 text-rose-300 border-rose-500/30'}`}>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${room.status === 'available' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-rose-50 text-rose-600 border-rose-200'}`}>
                   {room.status === 'available' ? 'ว่าง' : 'ปิดปรับปรุง'}
                 </span>
               </div>

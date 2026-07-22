@@ -28,9 +28,9 @@ const ViewEvaluations = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-6 lg:p-10 rounded-[32px] shadow-2xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-800 min-h-[80vh]">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">ผลประเมินความพึงพอใจ</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">ผลประเมินความพึงพอใจ</h2>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -40,14 +40,14 @@ const ViewEvaluations = () => {
           <div className="col-span-full py-12 text-center text-gray-500 bg-white dark:bg-gray-800 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">ไม่มีข้อมูลการประเมิน</div>
         ) : (
           evaluations.map((evalItem) => (
-            <div key={evalItem.id} className="bg-white dark:bg-gray-800 p-5 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm flex flex-col gap-3 hover:shadow-md transition-shadow">
+            <div key={evalItem.id} className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl p-6 rounded-[24px] border border-slate-100 dark:border-slate-800 shadow-lg shadow-slate-200/40 dark:shadow-none flex flex-col gap-3 hover:shadow-xl transition-all">
               <div className="flex justify-between items-center mb-2">
                 {renderStars(evalItem.rating)}
                 <span className="text-xs text-gray-400">
                   {new Date(evalItem.submittedAt).toLocaleDateString("th-TH")}
                 </span>
               </div>
-              <div className="flex-1 bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg italic text-gray-600 dark:text-gray-300 text-sm">
+              <div className="flex-1 bg-slate-50/50 dark:bg-slate-800/50 p-4 rounded-xl italic text-slate-600 dark:text-slate-300 text-sm">
                 "{evalItem.feedback || "ไม่มีข้อเสนอแนะเพิ่มเติม"}"
               </div>
             </div>

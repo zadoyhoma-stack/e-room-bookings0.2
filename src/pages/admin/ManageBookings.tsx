@@ -87,12 +87,12 @@ const ManageBookings = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-6 lg:p-10 rounded-[32px] shadow-2xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-800 min-h-[80vh]">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <h2 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-100">จัดการการจองห้อง</h2>
+        <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">จัดการการจองห้อง</h2>
         
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-          <div className="flex bg-white dark:bg-gray-800 rounded-lg p-1 border border-gray-200 dark:border-gray-700 shadow-sm">
+          <div className="flex bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[16px] p-1 border border-slate-100 dark:border-slate-800 shadow-sm">
             {bookingFilters.map((f) => (
               <button
                 key={f}
@@ -142,12 +142,12 @@ const ManageBookings = () => {
         </div>
       )}
 
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] shadow-xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-800 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs text-gray-700 uppercase bg-gray-50 dark:bg-gray-900/50 dark:text-gray-300 border-b border-gray-200 dark:border-gray-700">
+            <thead className="text-xs text-slate-700 uppercase bg-slate-50/80 dark:bg-slate-900/80 dark:text-slate-300 border-b border-slate-100 dark:border-slate-800">
               <tr>
-                <th className="px-6 py-4">ห้อง/หัวข้อ</th>
+                <th className="px-6 py-5">ห้อง/หัวข้อ</th>
                 <th className="px-6 py-4">ผู้จอง</th>
                 <th className="px-6 py-4">วัน-เวลา</th>
                 <th className="px-6 py-4">สถานะ</th>
@@ -161,8 +161,8 @@ const ManageBookings = () => {
                 <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500">ไม่พบรายการจอง</td></tr>
               ) : (
                 filteredBookings.map((booking) => (
-                  <tr key={booking.id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                    <td className="px-6 py-4">
+                  <tr key={booking.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/50 transition-colors">
+                    <td className="px-6 py-5">
                       <div className="font-medium text-gray-900 dark:text-gray-100 max-w-xs">{booking.roomName}</div>
                       <div className="text-xs text-gray-500 max-w-xs mt-0.5">{booking.topic || "ไม่มีหัวข้อ"}</div>
                       {booking.extraEquipment && <div className="text-[11px] text-orange-600 mt-1">อุปกรณ์: {booking.extraEquipment}</div>}

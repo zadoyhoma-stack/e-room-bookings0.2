@@ -58,7 +58,6 @@ const AdminDashboard = () => {
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {/* Card 1 */}
         <Card className="bg-gradient-to-br from-blue-600 to-blue-800 text-white border-0 shadow-lg shadow-blue-900/20 rounded-3xl overflow-hidden relative group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10 transition-transform group-hover:scale-110" />
           <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
             <CardTitle className="text-blue-100 font-medium text-sm">การจองทั้งหมด</CardTitle>
             <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
@@ -75,7 +74,6 @@ const AdminDashboard = () => {
 
         {/* Card 2 */}
         <Card className="bg-gradient-to-br from-sky-400 to-blue-500 text-white border-0 shadow-lg shadow-sky-900/20 rounded-3xl overflow-hidden relative group">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full blur-2xl -mr-10 -mt-10 transition-transform group-hover:scale-110" />
           <CardHeader className="flex flex-row items-center justify-between pb-2 relative z-10">
             <CardTitle className="text-sky-50 font-medium text-sm">จำนวนห้องทั้งหมด</CardTitle>
             <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm">
@@ -130,7 +128,7 @@ const AdminDashboard = () => {
         <div className="lg:col-span-2 space-y-8">
           
           {/* Chart 1 */}
-          <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/40 dark:shadow-none rounded-[32px] overflow-hidden">
+          <Card className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-lg rounded-[32px] overflow-hidden">
             <CardHeader className="px-8 pt-8 pb-0">
               <CardTitle className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
                 <BarChart className="w-5 h-5 text-blue-500" /> แนวโน้มการจองรายเดือน
@@ -162,7 +160,7 @@ const AdminDashboard = () => {
 
           <div className="grid sm:grid-cols-2 gap-8">
             {/* Chart 2 */}
-            <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/40 dark:shadow-none rounded-[32px]">
+            <Card className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-lg rounded-[32px]">
               <CardHeader className="px-6 pt-6 pb-0">
                 <CardTitle className="text-md font-bold text-slate-800 dark:text-white">การใช้งานแต่ละห้อง</CardTitle>
               </CardHeader>
@@ -181,7 +179,7 @@ const AdminDashboard = () => {
             </Card>
 
             {/* Chart 3 */}
-            <Card className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/40 dark:shadow-none rounded-[32px]">
+            <Card className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-lg rounded-[32px]">
               <CardHeader className="px-6 pt-6 pb-0">
                 <CardTitle className="text-md font-bold text-slate-800 dark:text-white">ช่วงเวลาที่มีการใช้งานหนาแน่น</CardTitle>
               </CardHeader>

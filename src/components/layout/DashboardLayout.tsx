@@ -7,10 +7,12 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ children, sidebar }: DashboardLayoutProps) => {
   return (
-    <div className="min-h-screen bg-slate-50/50 flex flex-col font-sans">
-      <div className="flex flex-1 w-full max-w-[1920px] mx-auto">
+    <div 
+      className="min-h-screen flex flex-col font-sans overflow-x-hidden relative bg-slate-50 dark:bg-slate-900"
+    >
+      <div className="flex flex-1 w-full max-w-[1440px] mx-auto relative z-10">
         {/* Main Content Area */}
-        <main className="flex-1 flex flex-col min-w-0 min-h-screen pt-20 px-4 sm:px-6 lg:px-8 pb-12">
+        <main className="flex-1 flex flex-col min-w-0 min-h-screen pt-20 px-4 sm:px-6 lg:px-8 pb-12 w-full">
           {children}
         </main>
         

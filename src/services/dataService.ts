@@ -10,6 +10,7 @@
  */
 
 import { mockRooms, Room, Booking, Problem, Evaluation } from "@/data/mockData";
+import { io } from "socket.io-client";
 
 // ==================== Storage Keys ====================
 const KEYS = {
@@ -41,17 +42,80 @@ function readLocal<T>(key: string, fallback: T): T {
 
 /** Write to localStorage + dispatch events for same-tab sync */
 function writeLocal<T>(key: string, data: T): void {
-  localStorage.setItem(key, JSON.stringify(data));
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Failed to write to localStorage for key ${key}:`, error);
+    // If quota exceeded, we might want to alert the user or clear old data
+  }
   // Same-tab event (StorageEvent only fires cross-tab)
   window.dispatchEvent(new CustomEvent("arit_data_changed", { detail: { key, data } }));
   // Cross-tab broadcast
-  channel?.postMessage({ key, data });
+  try {
+    channel?.postMessage({ key, data });
+  } catch (e) {
+    console.warn("BroadcastChannel postMessage failed:", e);
+  }
+}
+
+// ==================== Socket.IO for Cross-Device Sync ====================
+let socket: ReturnType<typeof io> | null = null;
+try {
+  socket = io(); // Automatically connects to the host (proxied to backend)
+  
+  socket.on('new_booking', (booking: Booking) => {
+    const bookings = readLocal<Booking[]>(KEYS.bookings, []);
+    if (!bookings.some(b => b.id === booking.id)) {
+      bookings.unshift(booking);
+      writeLocal(KEYS.bookings, bookings);
+    }
+  });
+
+  socket.on('update_booking', (updatedBooking: Booking) => {
+    const bookings = readLocal<Booking[]>(KEYS.bookings, []);
+    const updated = bookings.map(b => b.id === updatedBooking.id ? updatedBooking : b);
+    writeLocal(KEYS.bookings, updated);
+  });
+
+  socket.on('room_updated', (updatedRoom: Room) => {
+    const rooms = readLocal<Room[]>(KEYS.rooms, mockRooms);
+    const updated = rooms.map(r => r.id === updatedRoom.id ? updatedRoom : r);
+    writeLocal(KEYS.rooms, updated);
+  });
+
+  socket.on('new_problem', (problem: Problem) => {
+    const problems = readLocal<Problem[]>(KEYS.problems, []);
+    if (!problems.some(p => p.id === problem.id)) {
+      problems.unshift(problem);
+      writeLocal(KEYS.problems, problems);
+    }
+  });
+
+  socket.on('update_problem', (updatedProblem: Problem) => {
+    const problems = readLocal<Problem[]>(KEYS.problems, []);
+    const updated = problems.map(p => p.id === updatedProblem.id ? updatedProblem : p);
+    writeLocal(KEYS.problems, updated);
+  });
+
+  socket.on('new_evaluation', (evaluation: Evaluation) => {
+    const evals = readLocal<Evaluation[]>(KEYS.evaluations, []);
+    if (!evals.some(e => e.id === evaluation.id)) {
+      evals.unshift(evaluation);
+      writeLocal(KEYS.evaluations, evals);
+    }
+  });
+} catch (e) {
+  console.warn("Socket.IO client failed to initialize", e);
 }
 
 /** Try to fetch from API, return null if failed */
 async function tryFetch<T>(url: string, options?: RequestInit): Promise<T | null> {
   try {
-    const res = await fetch(url, options);
+    // Add cache buster for GET requests to prevent mobile Safari/Chrome aggressive caching
+    const isGet = !options?.method || options.method.toUpperCase() === 'GET';
+    const finalUrl = isGet ? `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}` : url;
+    
+    const res = await fetch(finalUrl, options);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -92,6 +156,17 @@ export function initializeData(): void {
 export async function getRooms(): Promise<Room[]> {
   const apiData = await tryFetch<Room[]>("/api/rooms");
   if (apiData) {
+    if (apiData.length === 0) {
+      // Backend is empty, seed it with current local data or mockRooms
+      const localData = readLocal<Room[]>(KEYS.rooms, mockRooms);
+      await tryFetch("/api/rooms/seed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(localData)
+      });
+      writeLocal(KEYS.rooms, localData);
+      return localData;
+    }
     writeLocal(KEYS.rooms, apiData);
     return apiData;
   }

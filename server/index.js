@@ -27,6 +27,14 @@ const PORT = 5000;
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
+// Prevent caching for all API requests
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  next();
+});
+
 // Setup uploads directory
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
@@ -60,6 +68,11 @@ const readDB = () => {
   try {
     const data = fs.readFileSync(DB_PATH, 'utf8');
     dbCache = JSON.parse(data);
+    if (!dbCache.rooms) dbCache.rooms = [];
+    if (!dbCache.bookings) dbCache.bookings = [];
+    if (!dbCache.problems) dbCache.problems = [];
+    if (!dbCache.evaluations) dbCache.evaluations = [];
+    if (!dbCache.users) dbCache.users = [];
     return dbCache;
   } catch (error) {
     console.error('Error reading database file:', error);
@@ -139,6 +152,16 @@ app.patch('/api/rooms/:id', (req, res) => {
   writeDB(db);
   io.emit('room_updated', db.rooms[roomIndex]);
   res.json(db.rooms[roomIndex]);
+});
+
+// Seed rooms endpoint
+app.post('/api/rooms/seed', (req, res) => {
+  const db = readDB();
+  if (Array.isArray(req.body)) {
+    db.rooms = req.body;
+    writeDB(db);
+  }
+  res.json({ success: true, count: db.rooms.length });
 });
 
 // 2. Get all bookings

@@ -15,15 +15,15 @@ export const RoomDetailModal = ({ open, onOpenChange, room }: RoomDetailModalPro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="glass-card rounded-2xl border-white/30 max-w-lg">
+      <DialogContent className="glass-card rounded-2xl border-white/30 max-w-lg w-[95vw] max-h-[85vh] overflow-y-auto p-4 sm:p-6">
         <DialogHeader>
           <DialogTitle className="text-card-foreground">{room.name}</DialogTitle>
           <DialogDescription className="sr-only">รายละเอียดห้องประชุม</DialogDescription>
         </DialogHeader>
 
         {/* Photo placeholder */}
-        <div className="h-44 rounded-xl bg-gradient-to-br from-primary/10 to-accent/20 flex items-center justify-center">
-          <span className="text-5xl">🏢</span>
+        <div className="h-32 sm:h-44 rounded-xl bg-gradient-to-br from-primary/10 to-accent/20 flex items-center justify-center">
+          <span className="text-4xl sm:text-5xl">🏢</span>
         </div>
 
         <div className="space-y-3 mt-2">

@@ -10,6 +10,7 @@ import NotFound from "./pages/NotFound";
 // Lazy-load heavy pages เพื่อลด initial bundle size
 const Admin = React.lazy(() => import("./pages/Admin"));
 const Staff = React.lazy(() => import("./pages/Staff"));
+const MyBookingsPage = React.lazy(() => import("./pages/MyBookingsPage"));
 
 // ตั้งค่า QueryClient ให้ cache data อย่างเหมาะสม ลด re-fetch ซ้ำซ้อน
 const queryClient = new QueryClient({
@@ -44,6 +45,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/admin/*" element={<Admin />} />
             <Route path="/staff/*" element={<Staff />} />
+            <Route path="/my-bookings" element={<MyBookingsPage />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

@@ -152,19 +152,39 @@ const Staff = () => {
         </nav>
 
         {/* Footer */}
-        <div className="px-4 pb-5 pt-3 border-t border-slate-100 space-y-1.5">
+        <div className="px-4 pb-5 pt-3 border-t border-slate-100 flex flex-col gap-3 mt-auto">
           <Link
             to="/?book=true"
-            className="flex items-center gap-3.5 px-4 py-3.5 text-[15px] text-sky-600 hover:bg-sky-50 font-bold rounded-xl transition-colors border border-sky-100 mb-2"
+            className="flex items-center gap-3.5 px-4 py-3.5 text-[15px] text-sky-600 hover:bg-sky-50 font-bold rounded-xl transition-colors border border-sky-100 bg-white"
           >
             <CalendarCheck size={20} className="text-sky-500" />
-            จองห้อง (สำหรับเจ้าหน้าที่)
+            จองห้อง (เจ้าหน้าที่)
           </Link>
+          
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 p-4 text-white shadow-lg shadow-sky-200">
+            <div className="relative z-10">
+              <p className="text-sm font-bold mb-1">ARIT Support</p>
+              <p className="text-xs text-sky-50 mb-3 leading-relaxed opacity-90">พบปัญหาการใช้งานระบบ? ติดต่อเจ้าหน้าที่ดูแลระบบได้เลยครับ</p>
+              <button className="text-[11px] font-semibold bg-white/20 hover:bg-white/30 transition-colors rounded-lg px-3 py-2 backdrop-blur-sm w-full flex items-center justify-center gap-1.5">
+                ติดต่อศูนย์คอมพิวเตอร์
+              </button>
+            </div>
+            {/* Decor blobs */}
+            <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+            <div className="absolute top-0 -left-6 w-16 h-16 bg-white/10 rounded-full blur-lg"></div>
+          </div>
         </div>
       </aside>
 
       {/* ───────── Main ───────── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 relative overflow-hidden">
+        {/* Decorative Background Blobs for Main Content */}
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none z-0 overflow-hidden">
+          <div className="absolute -top-[10%] -right-[5%] w-[40%] h-[40%] rounded-full bg-gradient-to-bl from-sky-300/30 to-blue-300/20 blur-3xl opacity-60"></div>
+          <div className="absolute top-[30%] -left-[10%] w-[35%] h-[35%] rounded-full bg-gradient-to-tr from-cyan-300/20 to-sky-400/20 blur-3xl opacity-60"></div>
+          <div className="absolute -bottom-[15%] right-[10%] w-[50%] h-[40%] rounded-full bg-gradient-to-tl from-blue-300/20 to-indigo-300/20 blur-3xl opacity-50"></div>
+        </div>
+
         {/* Mobile header */}
         <header className="lg:hidden flex items-center justify-between px-4 py-3 bg-white/90 dark:bg-slate-950/90 backdrop-blur-lg border-b border-slate-200/60 dark:border-slate-800 sticky top-0 z-30">
           <button onClick={() => setSidebarOpen(true)} className="p-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg">
@@ -180,7 +200,7 @@ const Staff = () => {
         </header>
 
         {/* Content */}
-        <main className="flex-1 overflow-y-auto">
+        <main className="flex-1 overflow-y-auto relative z-10">
           <div className="max-w-7xl mx-auto p-5 lg:p-8">
             <Suspense fallback={
               <div className="flex items-center justify-center py-32">

@@ -70,9 +70,9 @@ const StaffBookings = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
         <div>
-          <h1 className="text-4xl md:text-5xl font-black text-slate-800 flex items-center gap-4 drop-shadow-sm">
-            <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg shadow-indigo-500/30">
-              <CalendarCheck className="h-8 w-8 md:h-10 md:w-10 text-white" />
+          <h1 className="text-2xl md:text-3xl font-black text-slate-800 flex items-center gap-3 drop-shadow-sm">
+            <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl shadow-lg shadow-indigo-500/30">
+              <CalendarCheck className="h-6 w-6 md:h-8 md:w-8 text-white" />
             </div>
             อนุมัติการจองห้อง
           </h1>
@@ -86,8 +86,8 @@ const StaffBookings = () => {
             </p>
           )}
         </div>
-        <button onClick={handleExport} className="flex items-center gap-2 px-6 py-3 text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-2xl shadow-lg shadow-emerald-500/30 transition-all hover:-translate-y-1">
-          <Download className="h-5 w-5" /> ส่งออก Excel
+        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-xl shadow-md shadow-emerald-500/30 transition-all hover:-translate-y-1">
+          <Download className="h-4 w-4" /> ส่งออก Excel
         </button>
       </div>
 
@@ -118,16 +118,16 @@ const StaffBookings = () => {
       </div>
 
       {/* Table */}
-      <div className="bg-white/90 backdrop-blur-xl rounded-[32px] border border-white shadow-xl shadow-slate-200/50 overflow-hidden">
+      <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-white shadow-xl shadow-slate-200/50 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-200/60 bg-slate-50/80">
-                <th className="px-6 py-5 text-left text-sm font-black text-slate-600 uppercase tracking-wider">ห้อง / หัวข้อ</th>
-                <th className="px-6 py-5 text-left text-sm font-black text-slate-600 uppercase tracking-wider">ผู้จอง</th>
-                <th className="px-6 py-5 text-left text-sm font-black text-slate-600 uppercase tracking-wider">วัน-เวลา</th>
-                <th className="px-6 py-5 text-left text-sm font-black text-slate-600 uppercase tracking-wider">สถานะ</th>
-                <th className="px-6 py-5 text-right text-sm font-black text-slate-600 uppercase tracking-wider">จัดการ</th>
+                <th className="px-4 py-3 text-left text-xs font-black text-slate-600 uppercase tracking-wider">ห้อง / หัวข้อ</th>
+                <th className="px-4 py-3 text-left text-xs font-black text-slate-600 uppercase tracking-wider">ผู้จอง</th>
+                <th className="px-4 py-3 text-left text-xs font-black text-slate-600 uppercase tracking-wider">วัน-เวลา</th>
+                <th className="px-4 py-3 text-left text-xs font-black text-slate-600 uppercase tracking-wider">สถานะ</th>
+                <th className="px-4 py-3 text-right text-xs font-black text-slate-600 uppercase tracking-wider">จัดการ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100/60">
@@ -138,7 +138,7 @@ const StaffBookings = () => {
               ) : (
                 filtered.map(b => (
                   <tr key={b.id} className="hover:bg-indigo-50/30 transition-colors">
-                    <td className="px-6 py-5">
+                    <td className="px-4 py-3">
                       <p className="font-extrabold text-slate-800 text-base max-w-[250px]">{b.roomName}</p>
                       <p className="text-sm font-bold text-slate-600 max-w-[250px] mt-1">{b.topic || "—"}</p>
                       {b.extraEquipment && <p className="text-[11px] font-semibold text-orange-600 mt-1.5 bg-orange-50 px-2 py-0.5 rounded-md inline-block">อุปกรณ์เพิ่มเติม: {b.extraEquipment}</p>}
@@ -165,22 +165,22 @@ const StaffBookings = () => {
                       <p className="text-xs font-bold text-indigo-500 bg-indigo-50 px-2 py-1 rounded-md inline-block mt-1.5">{b.startTime} — {b.endTime}</p>
                     </td>
                     <td className="px-6 py-5">{statusBadge(b.status)}</td>
-                    <td className="px-6 py-5 text-right">
+                    <td className="px-4 py-3">
                       {b.status === "pending" && (
                         <div className="flex gap-2 justify-end">
                           <button
                             onClick={() => mutation.mutate({ id: b.id, status: "approved" })}
                             disabled={mutation.isPending}
-                            className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 rounded-xl shadow-md shadow-emerald-500/20 hover:-translate-y-0.5 transition-all disabled:opacity-50"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 rounded-lg shadow-sm shadow-emerald-500/20 hover:-translate-y-0.5 transition-all disabled:opacity-50"
                           >
-                            <CheckCircle size={18} /> อนุมัติ
+                            <CheckCircle size={14} /> อนุมัติ
                           </button>
                           <button
                             onClick={() => mutation.mutate({ id: b.id, status: "rejected" })}
                             disabled={mutation.isPending}
-                            className="inline-flex items-center gap-1.5 px-5 py-2.5 text-sm font-bold text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 hover:border-rose-300 rounded-xl hover:-translate-y-0.5 transition-all disabled:opacity-50"
+                            className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 hover:border-rose-300 rounded-lg hover:-translate-y-0.5 transition-all disabled:opacity-50"
                           >
-                            <XCircle size={18} /> ปฏิเสธ
+                            <XCircle size={14} /> ปฏิเสธ
                           </button>
                         </div>
                       )}

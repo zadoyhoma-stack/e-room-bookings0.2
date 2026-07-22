@@ -61,19 +61,19 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
   };
 
   return (
-    <div id="booking-scheduler" className="flex flex-col gap-5 mt-6">
+    <div id="booking-scheduler" className="flex flex-col gap-4 mt-2">
       {rooms.map(room => (
-        <div key={room.id} className="group">
+        <div key={room.id} className="group w-full">
           {/* Main Card (Header) */}
           <div 
-            className="relative bg-gradient-to-r from-[#44a5ff] to-[#3b82f6] dark:from-slate-800 dark:to-slate-900 dark:border dark:border-slate-700/50 rounded-[24px] p-5 shadow-lg flex flex-col xl:flex-row gap-5 transition-all duration-300 w-full min-w-0"
+            className="relative bg-gradient-to-r from-[#44a5ff] to-[#3b82f6] dark:from-slate-800 dark:to-slate-900 dark:border dark:border-slate-700/50 rounded-2xl p-4 shadow-lg border border-[#3b82f6]/20 flex flex-col xl:flex-row gap-4 transition-all duration-300 w-full min-w-0"
           >
             {/* Room Info Section */}
-            <div className="w-full xl:w-[500px] shrink-0 flex flex-col gap-4 bg-slate-800/25 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/60 rounded-[20px] p-5 backdrop-blur-md shadow-sm">
+            <div className="w-full xl:w-[500px] shrink-0 flex flex-col gap-3 bg-slate-800/25 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/60 rounded-xl p-4 shadow-sm">
               <div className="flex gap-4 sm:gap-6">
                 {/* Room Image */}
                 <div 
-                  className="w-[160px] h-[100px] sm:w-[220px] sm:h-[130px] rounded-2xl overflow-hidden shrink-0 shadow-sm border border-white/20 dark:border-white/10"
+                  className="w-[120px] h-[80px] sm:w-[160px] sm:h-[100px] rounded-xl overflow-hidden shrink-0 shadow-sm border border-white/20 dark:border-white/10"
                 >
                   <img 
                     src={room.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800"} 
@@ -88,7 +88,7 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
                     className="flex items-start gap-2 cursor-pointer group"
                     onClick={() => toggleRoom(room.id)}
                   >
-                    <h3 className="text-[20px] sm:text-[26px] font-bold text-white leading-snug">
+                    <h3 className="text-lg sm:text-xl font-bold text-white leading-snug">
                       {room.name}
                     </h3>
                     <ChevronDown className={cn(
@@ -141,7 +141,7 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
             
             {/* Time Slots Section */}
             <div className="flex-1 min-w-0 flex items-stretch justify-start xl:justify-end">
-              <div className="bg-slate-800/25 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/60 rounded-[24px] p-4 sm:p-5 backdrop-blur-md shadow-sm w-full h-full flex flex-col justify-center">
+              <div className="bg-slate-800/25 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/60 rounded-xl p-3 sm:p-4 shadow-sm w-full h-full flex flex-col justify-center">
                 <div className="flex flex-wrap gap-3 sm:gap-4 justify-start xl:justify-end w-full">
                   {HOURS.map(hour => {
                   const slot = getSlotDetails(room, hour);
@@ -151,19 +151,19 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
                   let labelClass = "";
 
                   if (slot.status === 'available') {
-                    slotClass = "bg-white/95 dark:bg-slate-700/95 hover:bg-white dark:hover:bg-slate-600 cursor-pointer shadow-md hover:shadow-xl hover:scale-110 active:scale-95 border-white/40 dark:border-slate-500/40 backdrop-blur-md";
+                    slotClass = "bg-white/95 dark:bg-slate-700/95 hover:bg-white dark:hover:bg-slate-600 cursor-pointer shadow-md hover:shadow-xl hover:scale-110 active:scale-95 border-white/40 dark:border-slate-500/40";
                     textClass = "text-[#0275d8] dark:text-sky-400 font-extrabold";
                     labelClass = "text-[#3ea4f9] dark:text-sky-300 font-semibold";
                   } else if (slot.status === 'pending') {
-                    slotClass = "bg-amber-100/90 dark:bg-amber-900/50 cursor-not-allowed shadow-md border-white/40 dark:border-amber-700/40 backdrop-blur-md";
+                    slotClass = "bg-amber-100/90 dark:bg-amber-900/50 cursor-not-allowed shadow-md border-white/40 dark:border-amber-700/40";
                     textClass = "text-amber-700 dark:text-amber-400 font-bold";
                     labelClass = "text-amber-600 dark:text-amber-300/80 font-medium";
                   } else if (slot.status === 'booked') {
-                    slotClass = "bg-white/20 dark:bg-slate-800/60 cursor-not-allowed shadow-md border-white/30 dark:border-slate-600/40 backdrop-blur-md";
+                    slotClass = "bg-white/20 dark:bg-slate-800/60 cursor-not-allowed shadow-md border-white/30 dark:border-slate-600/40";
                     textClass = "text-white dark:text-slate-300 font-semibold";
                     labelClass = "text-white/80 dark:text-slate-400 font-medium";
                   } else if (slot.status === 'maintenance') {
-                    slotClass = "bg-black/20 dark:bg-black/40 cursor-not-allowed border-white/10 dark:border-slate-700/30 backdrop-blur-md";
+                    slotClass = "bg-black/20 dark:bg-black/40 cursor-not-allowed border-white/10 dark:border-slate-700/30";
                     textClass = "text-white/50 dark:text-slate-500 font-semibold line-through";
                     labelClass = "text-white/40 dark:text-slate-600 font-medium";
                   }
@@ -174,15 +174,15 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
                       disabled={slot.status !== 'available'}
                       onClick={() => onTimeSlotClick(room, hour)}
                       className={cn(
-                        "w-[84px] h-[84px] sm:w-[96px] sm:h-[96px] rounded-[22px] flex flex-col items-center justify-center relative overflow-hidden transition-all duration-200 ease-out flex-shrink-0 border",
+                        "w-[64px] h-[64px] sm:w-[80px] sm:h-[80px] rounded-xl flex flex-col items-center justify-center relative overflow-hidden transition-all duration-200 ease-out flex-shrink-0 border",
                         slotClass
                       )}
                       title={slot.status === 'available' ? `คลิกเพื่อจองเวลา ${hour}` : undefined}
                     >
-                      <span className={cn("text-[17px] sm:text-[19px] leading-tight transition-colors", textClass)}>
+                      <span className={cn("text-[15px] sm:text-[16px] leading-tight transition-colors", textClass)}>
                         {hour}
                       </span>
-                      <span className={cn("text-[12px] sm:text-[13px] mt-1 transition-colors px-1 text-center w-full truncate", labelClass)}>
+                      <span className={cn("text-[11px] sm:text-[12px] mt-1 transition-colors px-1 text-center w-full truncate", labelClass)}>
                         {slot.label}
                       </span>
                     </button>
@@ -199,7 +199,7 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
             expandedRooms[room.id] ? "grid-rows-[1fr] opacity-100 mt-4" : "grid-rows-[0fr] opacity-0"
           )}>
             <div className="overflow-hidden">
-              <div className="bg-slate-200/95 dark:bg-slate-800/90 backdrop-blur-xl rounded-3xl p-5 border border-slate-300 dark:border-slate-700/50 shadow-md flex flex-col md:flex-row gap-6 mx-2">
+              <div className="bg-slate-200/95 dark:bg-slate-800/90 rounded-2xl p-4 border border-slate-300 dark:border-slate-700/50 shadow-md flex flex-col md:flex-row gap-6 mx-2">
                 <div className="w-full md:w-1/4 h-48 md:h-auto rounded-2xl overflow-hidden shrink-0 relative border border-slate-300 dark:border-slate-700">
                   <img src={room.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800"} alt={room.name} className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
