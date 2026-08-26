@@ -2,7 +2,8 @@ import { Routes, Route, Link, useLocation, Navigate, useNavigate } from "react-r
 import { 
   LayoutDashboard, CalendarDays, Building2, Users, BarChart3, 
   Activity, Settings, FileText, DatabaseBackup, LogOut, 
-  Search, Bell, MessageSquare, Moon, Sun, Menu, ChevronRight, Home
+  Search, Bell, MessageSquare, Moon, Sun, Menu, ChevronRight, Home,
+  AlertTriangle, Star
 } from "lucide-react";
 import React, { useState, Suspense } from "react";
 
@@ -12,10 +13,10 @@ const ManageBookings = React.lazy(() => import("./admin/ManageBookings"));
 const ManageUsers = React.lazy(() => import("./admin/ManageUsers"));
 const RoomManagement = React.lazy(() => import("./admin/RoomManagement"));
 const Reports = React.lazy(() => import("./admin/Reports"));
-const RealTimeMonitoring = React.lazy(() => import("./admin/RealTimeMonitoring"));
-const SystemSettings = React.lazy(() => import("./admin/SystemSettings"));
 const ActivityLogs = React.lazy(() => import("./admin/ActivityLogs"));
-const BackupRestore = React.lazy(() => import("./admin/BackupRestore"));
+const ManageProblems = React.lazy(() => import("./admin/ManageProblems"));
+const ViewEvaluations = React.lazy(() => import("./admin/ViewEvaluations"));
+const RealTimeMonitoring = React.lazy(() => import("./admin/RealTimeMonitoring"));
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useTheme } from "next-themes";
+import { ProfileModal } from "@/components/modals/ProfileModal";
 
 const Admin = () => {
   const location = useLocation();
@@ -31,6 +33,7 @@ const Admin = () => {
   const { isAdmin, canApprove, user, logout } = useAuth();
   const { theme, setTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
 
   // Redirect if not admin or staff
   if (!canApprove) {
@@ -39,14 +42,12 @@ const Admin = () => {
 
   const navItems = [
     { name: "ภาพรวม", path: "/admin", icon: LayoutDashboard, badge: 0 },
-    { name: "จัดการการจอง", path: "/admin/bookings", icon: CalendarDays, badge: 0 },
     { name: "จัดการห้องประชุม", path: "/admin/rooms", icon: Building2, badge: 0 },
     { name: "จัดการผู้ใช้งาน", path: "/admin/users", icon: Users, hide: !isAdmin, badge: 0 },
+    { name: "จัดการปัญหา", path: "/admin/problems", icon: AlertTriangle, badge: 0 },
+    { name: "ผลการประเมิน", path: "/admin/evaluations", icon: Star, badge: 0 },
     { name: "รายงานและสถิติ", path: "/admin/reports", icon: BarChart3, badge: 0 },
-    { name: "สถานะเรียลไทม์", path: "/admin/monitoring", icon: Activity, badge: 0 },
-    { name: "ตั้งค่าระบบ", path: "/admin/settings", icon: Settings, badge: 0 },
-    { name: "ประวัติการใช้งาน", path: "/admin/logs", icon: FileText, badge: 0 },
-    { name: "สำรองข้อมูล", path: "/admin/backup", icon: DatabaseBackup, badge: 0 },
+    { name: "สถานะและประวัติ", path: "/admin/logs", icon: Activity, badge: 0 },
   ];
 
   const currentNavItem = navItems.find(item => item.path === location.pathname || (item.path !== "/admin" && location.pathname.startsWith(item.path))) || navItems[0];
@@ -124,7 +125,6 @@ const Admin = () => {
             className="w-full justify-start gap-3.5 px-4 py-6 rounded-xl text-[15px] text-red-600 hover:text-red-700 hover:bg-red-50 transition-all font-bold"
             onClick={() => {
               logout();
-              navigate("/");
             }}
           >
             <LogOut size={20} />
@@ -158,7 +158,8 @@ const Admin = () => {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>บัญชีของฉัน</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-red-600" onClick={() => { logout(); navigate("/"); }}>ออกจากระบบ</DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer" onClick={() => setProfileOpen(true)}>โปรไฟล์</DropdownMenuItem>
+                <DropdownMenuItem className="text-red-600" onClick={logout}>ออกจากระบบ</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -202,10 +203,10 @@ const Admin = () => {
               <DropdownMenuContent align="end" className="w-56 rounded-2xl">
                 <DropdownMenuLabel>บัญชีของฉัน</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer rounded-xl">โปรไฟล์</DropdownMenuItem>
+                <DropdownMenuItem className="cursor-pointer rounded-xl" onClick={() => setProfileOpen(true)}>โปรไฟล์</DropdownMenuItem>
                 <DropdownMenuItem className="cursor-pointer rounded-xl">การแจ้งเตือน</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="cursor-pointer rounded-xl text-red-600" onClick={() => { logout(); navigate("/"); }}>
+                <DropdownMenuItem className="cursor-pointer rounded-xl text-red-600" onClick={logout}>
                   ออกจากระบบ
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -227,14 +228,12 @@ const Admin = () => {
               <div className="page-transition">
                 <Routes>
                   <Route path="/" element={<AdminDashboard />} />
-                  <Route path="/bookings" element={<ManageBookings />} />
                   <Route path="/rooms" element={<RoomManagement />} />
                   <Route path="/users" element={<ManageUsers />} />
+                  <Route path="/problems" element={<ManageProblems />} />
+                  <Route path="/evaluations" element={<ViewEvaluations />} />
                   <Route path="/reports" element={<Reports />} />
-                  <Route path="/monitoring" element={<RealTimeMonitoring />} />
-                  <Route path="/settings" element={<SystemSettings />} />
                   <Route path="/logs" element={<ActivityLogs />} />
-                  <Route path="/backup" element={<BackupRestore />} />
                   <Route path="*" element={<Navigate to="/admin" replace />} />
                 </Routes>
               </div>
@@ -242,6 +241,8 @@ const Admin = () => {
           </div>
         </main>
       </div>
+
+      <ProfileModal open={profileOpen} onOpenChange={setProfileOpen} />
     </div>
   );
 };

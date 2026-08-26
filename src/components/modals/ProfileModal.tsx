@@ -34,9 +34,6 @@ export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // ข้อความแจ้งผลสำเร็จ
-  const [success, setSuccess] = useState('');
-
   // ซิงค์ชื่อเล่นเมื่อเปิด Modal
   useEffect(() => {
     if (open && currentUser) {
@@ -60,10 +57,22 @@ export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
         try {
           const base64String = reader.result as string;
           await updateUser({ profilePic: base64String });
-          setSuccess('อัปเดตรูปโปรไฟล์สำเร็จ');
-          setTimeout(() => setSuccess(''), 3000);
+          import('sweetalert2').then((Swal) => {
+            Swal.default.fire({
+              title: 'อัปเดตรูปโปรไฟล์สำเร็จ',
+              icon: 'success',
+              timer: 1500,
+              showConfirmButton: false
+            });
+          });
         } catch (err: unknown) {
-          alert(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการอัปเดตรูปโปรไฟล์');
+          import('sweetalert2').then((Swal) => {
+            Swal.default.fire({
+              title: 'เกิดข้อผิดพลาด',
+              text: err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการอัปเดตรูปโปรไฟล์',
+              icon: 'error'
+            });
+          });
         } finally {
           e.target.value = ''; // รีเซ็ต input เพื่อให้เลือกไฟล์เดิม/ใหม่ซ้ำได้
         }
@@ -77,10 +86,23 @@ export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
     e.preventDefault();
     try {
       await updateUser({ nickname });
-      setSuccess('บันทึกชื่อเล่นสำเร็จ');
-      setTimeout(() => setSuccess(''), 3000);
+      import('sweetalert2').then((Swal) => {
+        Swal.default.fire({
+          title: 'บันทึกชื่อเล่นสำเร็จ',
+          icon: 'success',
+          timer: 1500,
+          showConfirmButton: false
+        });
+      });
+      onOpenChange(false);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการอัปเดตชื่อเล่น');
+      import('sweetalert2').then((Swal) => {
+        Swal.default.fire({
+          title: 'เกิดข้อผิดพลาด',
+          text: err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการอัปเดตชื่อเล่น',
+          icon: 'error'
+        });
+      });
     }
   };
 
@@ -89,19 +111,31 @@ export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
     e.preventDefault();
     // ตรวจสอบว่ารหัสผ่านใหม่ กับ ยืนยันรหัสผ่านใหม่ ตรงกันหรือไม่
     if (newPassword !== confirmPassword) {
-      alert('รหัสผ่านใหม่ไม่ตรงกัน');
+      import('sweetalert2').then((Swal) => Swal.default.fire({ title: 'รหัสผ่านใหม่ไม่ตรงกัน', icon: 'warning' }));
       return;
     }
-    setSuccess('เปลี่ยนรหัสผ่านสำเร็จ (จำลอง)');
+    import('sweetalert2').then((Swal) => {
+      Swal.default.fire({
+        title: 'เปลี่ยนรหัสผ่านสำเร็จ (จำลอง)',
+        icon: 'success',
+        timer: 1500,
+        showConfirmButton: false
+      });
+    });
     // เคลียร์ฟอร์ม
     setCurrentPassword('');
     setNewPassword('');
     setConfirmPassword('');
-    setTimeout(() => setSuccess(''), 3000);
+    onOpenChange(false);
   };
 
   // ถ้ายังไม่ได้ล็อคอิน ไม่ต้องแสดงอะไร
   if (!currentUser) return null;
+
+  // คำนวณสิทธิ์คงเหลือของวันนี้
+  const todayStr = new Date().toISOString().split('T')[0];
+  const editCount = currentUser.lastProfileEditDate === todayStr ? (currentUser.profileEditCount || 0) : 0;
+  const remainingEdits = Math.max(0, 5 - editCount);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -127,13 +161,6 @@ export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
             >
               รหัสผ่าน
             </button>
-          </div>
-        )}
-
-        {/* ==================== แสดงข้อความสำเร็จ ==================== */}
-        {success && (
-          <div className="mb-4 p-3 bg-emerald-500/20 border border-emerald-500/30 text-emerald-600 rounded-xl flex items-center gap-2 text-sm">
-            <CheckCircle className="h-4 w-4" /> {success}
           </div>
         )}
 
@@ -175,7 +202,14 @@ export const ProfileModal = ({ open, onOpenChange }: ProfileModalProps) => {
                   />
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                 </div>
-                <p className="text-xs text-slate-400">ชื่อเล่นจะแสดงเมื่อคุณจองห้อง</p>
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-slate-400">ชื่อเล่นจะแสดงเมื่อคุณจองห้อง</p>
+                  {!isAdmin && (
+                    <p className={`text-xs font-medium ${remainingEdits > 0 ? 'text-orange-500' : 'text-red-500'}`}>
+                      เหลือสิทธิ์วันนี้: {remainingEdits}/5 ครั้ง
+                    </p>
+                  )}
+                </div>
               </div>
               {/* ช่องแสดงสิทธิ์ (แก้ไขไม่ได้) */}
               <div className="space-y-1.5">

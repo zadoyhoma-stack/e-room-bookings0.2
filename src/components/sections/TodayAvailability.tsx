@@ -9,7 +9,7 @@ export const TodayAvailability = ({ bookings = [] }: { bookings?: Booking[] }) =
   const getSlotsForRoom = (roomId: string): TimeSlot[] => {
     const hours = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];
     const todayStr = format(new Date(), "yyyy-MM-dd");
-    const roomBookings = bookings.filter(b => b.roomId === roomId && (b.status === 'approved' || b.status === 'pending') && b.date === todayStr);
+    const roomBookings = bookings.filter(b => b.roomId === roomId && (b.status === 'approved' || b.status === 'pending' || b.status === 'completed') && b.date === todayStr);
 
     const now = new Date();
     const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();

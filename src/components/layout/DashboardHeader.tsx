@@ -3,7 +3,7 @@ import { Bell, User, LogOut, ShieldCheck, Users, GraduationCap, ChevronDown, Sta
 import { useAuth, UserRole } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { Button } from "@/components/ui/button";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 interface DashboardHeaderProps {
@@ -32,7 +32,7 @@ export const DashboardHeader = ({ onLoginClick, onProfileClick, onEvaluateClick,
   const displayName = currentUser?.role === 'admin' ? currentUser.name : (currentUser?.nickname || currentUser?.name);
 
   return (
-    <div className="flex flex-col gap-6 mb-8 mt-2">
+    <div className="flex flex-col gap-6 mb-8 mt-2 relative z-50">
       
       {/* Top Banner */}
       <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-2 sm:p-4 group">
@@ -40,14 +40,14 @@ export const DashboardHeader = ({ onLoginClick, onProfileClick, onEvaluateClick,
         <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between w-full gap-4">
           <div className="flex items-center gap-4">
             {/* Logo */}
-            <div className="relative shrink-0 flex items-center justify-center w-[48px] h-[48px] sm:w-[96px] sm:h-[96px] hover:scale-105 transition-transform duration-300">
+            <div className="relative shrink-0 flex items-center justify-center w-[64px] h-[64px] sm:w-[112px] sm:h-[112px] hover:scale-105 transition-transform duration-300">
               <img src="/ตรามหาลัย.png" alt="Logo" className="w-full h-full object-contain drop-shadow-xl" />
             </div>
             <div className="flex flex-col justify-center ml-1 sm:ml-2 min-w-0">
-              <span className="text-[20px] sm:text-[36px] leading-tight font-black tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-200 drop-shadow-lg truncate" style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.2))' }}>
+              <span className="text-[20px] sm:text-[28px] leading-tight font-black tracking-tight text-white drop-shadow-md truncate">
                 ARIT E-ROOMs
               </span>
-              <span className="text-[10px] sm:text-[17px] text-white/95 font-medium tracking-wide drop-shadow-md mt-0.5 truncate">
+              <span className="text-[10px] sm:text-[14px] text-white/90 font-medium tracking-wide mt-0.5 drop-shadow-md truncate">
                 มหาวิทยาลัยราชภัฏมหาสารคาม
               </span>
             </div>
@@ -62,7 +62,7 @@ export const DashboardHeader = ({ onLoginClick, onProfileClick, onEvaluateClick,
               {/* Theme Toggle */}
               <button 
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                className="p-2 sm:px-3 sm:py-2 bg-white/10 backdrop-blur-md border border-white/20 text-white hover:bg-white/30 rounded-xl shadow-lg transition-all flex items-center gap-1.5"
+                className="p-2 sm:px-3 sm:py-2 bg-black/40 hover:bg-black/60 backdrop-blur-md text-white rounded-full sm:rounded-[18px] transition-all flex items-center gap-1.5 border border-white/10 shadow-sm"
                 title="สลับโหมดหน้าจอ"
               >
                 {theme === 'dark' ? <Sun className="h-4 w-4 sm:h-5 sm:w-5" /> : <Moon className="h-4 w-4 sm:h-5 sm:w-5" />}
@@ -75,51 +75,51 @@ export const DashboardHeader = ({ onLoginClick, onProfileClick, onEvaluateClick,
                 <div className="relative">
                   <button
                     onClick={() => setDropdownOpen(!dropdownOpen)}
-                    className="flex items-center gap-2 px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-white/15 hover:bg-white/25 border border-white/30 hover:border-white/50 backdrop-blur-md transition-all duration-300 shadow-lg hover:shadow-xl"
+                    className="flex items-center gap-2 px-2 py-1.5 sm:px-3 sm:py-1.5 rounded-full sm:rounded-[20px] bg-black/40 hover:bg-black/60 backdrop-blur-md text-white transition-all duration-300 border border-white/10 shadow-sm"
                   >
-                    <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg overflow-hidden bg-white/50 flex items-center justify-center shrink-0 border border-white/60 shadow-sm">
+                    <div className="h-8 w-8 rounded-full overflow-hidden bg-white flex items-center justify-center shrink-0">
                       {currentUser.profilePic ? (
                         <img src={currentUser.profilePic} alt="" className="w-full h-full object-cover" />
                       ) : (
-                        <User className="h-4 w-4 sm:h-5 sm:w-5 text-slate-800" />
+                        <User className="h-4 w-4 text-[#1877f2]" />
                       )}
                     </div>
-                    <div className={cn("hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11px] font-bold shadow-sm", roleConfig?.bg, roleConfig?.color, "border-white/50")}>
+                    <div className={cn("hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold", roleConfig?.bg, roleConfig?.color)}>
                       <RoleIcon className="h-3.5 w-3.5" />
                       {roleConfig?.label}
                     </div>
-                    <span className="text-sm text-white font-semibold max-w-[120px] sm:max-w-[150px] truncate drop-shadow-md hidden xs:inline-block">{displayName}</span>
-                    <ChevronDown className={cn("h-4 w-4 text-white/90 transition-transform duration-300", dropdownOpen && "rotate-180")} />
+                    <span className="text-sm font-semibold max-w-[120px] sm:max-w-[150px] truncate hidden xs:inline-block">{displayName}</span>
+                    <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", dropdownOpen && "rotate-180")} />
                   </button>
 
                   {dropdownOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)} />
-                      <div className="absolute right-0 top-full mt-3 w-56 bg-white rounded-2xl border border-slate-100 shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                        <div className="px-4 py-3 border-b border-slate-50 bg-slate-50/80 backdrop-blur-sm">
-                          <p className="text-sm font-semibold text-slate-800 truncate">{displayName}</p>
-                          <p className="text-xs text-slate-500 truncate">{currentUser.email}</p>
+                      <div className="absolute right-0 top-full mt-3 w-56 bg-white dark:bg-[#242526] rounded-xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-800/80">
+                          <p className="text-sm font-semibold text-[#050505] dark:text-[#e4e6eb] truncate">{displayName}</p>
+                          <p className="text-xs text-[#65676b] dark:text-[#b0b3b8] truncate">{currentUser.email}</p>
                         </div>
                         <div className="p-2 space-y-1">
-                          <button onClick={() => { setDropdownOpen(false); onProfileClick(); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors">
-                            <User className="h-4 w-4 text-slate-400" /> แก้ไขโปรไฟล์
+                          <button onClick={() => { setDropdownOpen(false); onProfileClick(); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-[#050505] dark:text-[#e4e6eb] hover:bg-[#f0f2f5] dark:hover:bg-[#3a3b3c] rounded-lg transition-colors">
+                            <User className="h-4 w-4 text-[#65676b] dark:text-[#b0b3b8]" /> แก้ไขโปรไฟล์
                           </button>
                           {currentUser.role === 'student' && (
-                            <button onClick={() => { setDropdownOpen(false); navigate('/my-bookings'); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl transition-colors">
-                              <Inbox className="h-4 w-4 text-slate-400" /> การจองของฉัน
+                            <button onClick={() => { setDropdownOpen(false); navigate('/my-bookings'); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-[#050505] dark:text-[#e4e6eb] hover:bg-[#f0f2f5] dark:hover:bg-[#3a3b3c] rounded-lg transition-colors">
+                              <Inbox className="h-4 w-4 text-[#65676b] dark:text-[#b0b3b8]" /> การจองของฉัน
                             </button>
                           )}
                           {currentUser.role === 'admin' && (
-                            <button onClick={() => { setDropdownOpen(false); navigate("/admin"); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-semibold text-blue-600 hover:bg-blue-50 rounded-xl transition-colors">
+                            <Link to="/admin" onClick={() => setDropdownOpen(false)} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-semibold text-blue-600 hover:bg-[#e7f3ff] rounded-lg transition-colors">
                               <ShieldCheck className="h-4 w-4" /> ระบบจัดการ (Back Office)
-                            </button>
+                            </Link>
                           )}
                           {currentUser.role === 'staff' && (
-                            <button onClick={() => { setDropdownOpen(false); navigate("/staff"); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-semibold text-sky-600 hover:bg-sky-50 rounded-xl transition-colors">
+                            <Link to="/staff" onClick={() => setDropdownOpen(false)} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-semibold text-sky-600 hover:bg-sky-50 rounded-lg transition-colors">
                               <Users className="h-4 w-4" /> ระบบจัดการ (Staff)
-                            </button>
+                            </Link>
                           )}
-                          <button onClick={() => { setDropdownOpen(false); logout(); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-rose-500 hover:bg-rose-50 rounded-xl transition-colors">
+                          <button onClick={() => { setDropdownOpen(false); logout(); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm font-medium text-rose-500 hover:bg-rose-50 rounded-lg transition-colors">
                             <LogOut className="h-4 w-4" /> ออกจากระบบ
                           </button>
                         </div>
@@ -130,7 +130,7 @@ export const DashboardHeader = ({ onLoginClick, onProfileClick, onEvaluateClick,
               ) : (
                 <Button 
                   onClick={onLoginClick} 
-                  className="rounded-xl px-4 sm:px-5 py-2 sm:py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white border border-white/20 shadow-md transition-all duration-300 font-bold tracking-wide text-sm h-auto"
+                  className="rounded-full sm:rounded-[18px] px-4 sm:px-5 py-2 sm:py-2.5 bg-white text-[#1877f2] hover:bg-slate-100 transition-all duration-300 font-bold text-sm h-auto shadow-sm"
                 >
                   <User className="mr-1.5 h-4 w-4" />
                   เข้าสู่ระบบ
@@ -139,30 +139,30 @@ export const DashboardHeader = ({ onLoginClick, onProfileClick, onEvaluateClick,
             </div>
 
             {/* Utility Actions Group (Bottom Row on Mobile) */}
-            <div className="flex items-center gap-1 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-1 shadow-lg overflow-x-auto no-scrollbar max-w-full sm:order-first z-40">
+            <div className="flex items-center gap-1 bg-black/40 backdrop-blur-md rounded-[18px] sm:rounded-[20px] p-1 overflow-x-auto no-scrollbar max-w-full sm:order-first z-40 border border-white/10 shadow-sm">
               {currentUser?.role === 'student' && (
                 <>
                   <button 
                     onClick={() => navigate('/my-bookings')} 
-                    className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm font-semibold text-white/90 hover:text-white hover:bg-white/20 rounded-lg transition-all whitespace-nowrap"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm font-semibold text-white/90 hover:text-white hover:bg-white/20 rounded-[14px] transition-all whitespace-nowrap"
                   >
                     <Inbox className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     <span>สถานะการจอง</span>
                   </button>
-                  <div className="w-[1px] h-3.5 bg-white/20 mx-0.5"></div>
+                  <div className="w-[1px] h-3.5 bg-white/30 mx-0.5"></div>
                 </>
               )}
               <button 
                 onClick={onEvaluateClick} 
-                className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm font-semibold text-white/90 hover:text-white hover:bg-white/20 rounded-lg transition-all whitespace-nowrap"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm font-semibold text-white/90 hover:text-white hover:bg-white/20 rounded-[14px] transition-all whitespace-nowrap"
               >
                 <Star className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 <span>แบบประเมิน</span>
               </button>
-              <div className="w-[1px] h-3.5 bg-white/20 mx-0.5"></div>
+              <div className="w-[1px] h-3.5 bg-white/30 mx-0.5"></div>
               <button 
                 onClick={onReportClick} 
-                className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm font-semibold text-amber-100 hover:text-white hover:bg-amber-500/30 rounded-lg transition-all whitespace-nowrap"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 sm:px-3 sm:py-2 text-[12px] sm:text-sm font-semibold text-amber-100 hover:text-white hover:bg-amber-500/30 rounded-[14px] transition-all whitespace-nowrap"
               >
                 <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                 <span>แจ้งปัญหา</span>

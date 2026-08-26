@@ -1,5 +1,5 @@
 export type RoomStatus = 'available' | 'occupied' | 'maintenance';
-export type BookingStatus = 'pending' | 'approved' | 'rejected' | 'cancelled';
+export type BookingStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed';
 export type ProblemStatus = 'pending' | 'resolved';
 export type ProblemUrgency = 'low' | 'medium' | 'high';
 
@@ -12,6 +12,7 @@ export interface Room {
   location: string;
   description: string;
   rules: string[];
+  occupiedText?: string;
 }
 
 export interface Booking {
@@ -32,6 +33,7 @@ export interface Booking {
   department?: string;
   participantList?: string[];
   extraEquipment?: string;
+  ipAddress?: string;
 }
 
 export interface Problem {
@@ -147,11 +149,6 @@ export const mockRooms: Room[] = [
   },
   {
     id: 'r14', name: 'ห้องกลุ่มย่อย ชั้น 3: ข้างบันได #1', capacity: 4,
-    equipment: ['wifi'], status: 'available', location: 'ชั้น 3',
-    description: 'พื้นที่ทำงานร่วม', rules: [],
-  },
-  {
-    id: 'r15', name: 'ห้องกลุ่มย่อย ชั้น 3: ข้างบันได #2', capacity: 4,
     equipment: ['wifi'], status: 'available', location: 'ชั้น 3',
     description: 'พื้นที่ทำงานร่วม', rules: [],
   },

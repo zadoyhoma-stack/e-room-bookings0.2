@@ -23,13 +23,14 @@ export interface AppUser {
   department?: string;   // หน่วยงาน (สำหรับ admin/staff)
   studentId?: string;    // รหัสนักศึกษา (สำหรับ student)
   profilePic?: string;   // รูปโปรไฟล์ (เก็บเป็น Base64 string)
+  profileEditCount?: number;
+  lastProfileEditDate?: string;
 }
 
-/** โครงสร้างของ Context ที่ส่งให้ Component ลูกใช้ */
 interface AuthContextType {
-  setRole: (role: UserRole) => void;
   currentUser: AppUser | null;  // ผู้ใช้ที่ล็อคอินอยู่ (null = ยังไม่ล็อคอิน)
   login: (username: string, password: string) => Promise<boolean>;  // ฟังก์ชันเข้าสู่ระบบ
+  loginWithGoogle: (credential: string) => Promise<{ success: boolean; error?: string }>; // ล็อคอินด้วย Google
   logout: () => void;           // ฟังก์ชันออกจากระบบ
   isAdmin: boolean;             // เป็นผู้ดูแลระบบหรือไม่
   isStaff: boolean;             // เป็นเจ้าหน้าที่หรือไม่
@@ -39,65 +40,6 @@ interface AuthContextType {
   canManageSystem: boolean;     // สามารถจัดการระบบ (เพิ่ม/ลบ ผู้ใช้) ได้หรือไม่
   updateUser: (updates: Partial<AppUser>) => Promise<void>;  // ฟังก์ชันอัปเดตข้อมูลผู้ใช้
 }
-
-// ==================== ข้อมูลผู้ใช้จำลอง (Mock Users) ====================
-// หมายเหตุ: ในระบบจริงจะดึงข้อมูลจาก Database แทน
-const MOCK_USERS: Array<AppUser & { password: string }> = [
-  {
-    id: 'u1',
-    name: 'ผู้ดูแลระบบ',
-    nickname: 'แอดมิน',
-    email: 'admin@rmu.ac.th',
-    role: 'admin',
-    department: 'สำนักวิทยบริการฯ',
-    password: 'admin1234',
-  },
-  {
-    id: 'u2',
-    name: 'สมใจ รักงาน',
-    nickname: 'ใจ',
-    email: 'staff01@rmu.ac.th',
-    role: 'staff',
-    department: 'สำนักวิทยบริการฯ',
-    password: 'staff1234',
-  },
-  {
-    id: 'u3',
-    name: 'นายมานะ ขยันเรียน',
-    nickname: 'มานะ',
-    email: 'student01@rmu.ac.th',
-    role: 'student',
-    studentId: '6501234567',
-    password: 'std1234',
-  },
-  {
-    id: 'u4',
-    name: 'นางสาวสุดา ใจดี',
-    nickname: 'สุดา',
-    email: 'student02@rmu.ac.th',
-    role: 'student',
-    studentId: '6501234568',
-    password: 'std1234',
-  },
-  {
-    id: 'u5',
-    name: 'นักศึกษา ทดสอบ2',
-    nickname: 'นักศึกษา2',
-    email: 'student2@rmu.ac.th',
-    role: 'student',
-    studentId: '2222222222',
-    password: '222',
-  },
-];
-
-const USERNAME_MAP: Record<string, string> = {
-  admin: 'u1',
-  staff01: 'u2',
-  student01: 'u3',
-  student02: 'u4',
-  student2: 'u5',
-  นักศึกษา2: 'u5',
-};
 
 // ==================== สร้าง Context ====================
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -123,60 +65,77 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  // ==================== ฟังก์ชันเข้าสู่ระบบ ====================
-  // ตรวจสอบชื่อผู้ใช้และรหัสผ่าน → ถ้าถูกต้องดึงข้อมูลจาก Backend ล่าสุด → return true
   const login = async (username: string, password: string): Promise<boolean> => {
-    const userId = USERNAME_MAP[username.trim()];
-    if (!userId) return false; // ไม่พบชื่อผู้ใช้
-
-    const mockUser = MOCK_USERS.find(u => u.id === userId && u.password === password);
-    if (!mockUser) return false; // รหัสผ่านไม่ถูกต้อง
-
     try {
-      // ไปดึงข้อมูลล่าสุดจาก Backend
-      const res = await fetch('/api/users');
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username: username.trim(), password })
+      });
+
       if (res.ok) {
-        const users = await res.json() as AppUser[];
-        const dbUser = users.find(u => u.id === userId);
-        if (dbUser) {
-          setCurrentUser(dbUser);
-          sessionStorage.setItem('arit_user', JSON.stringify(dbUser));
-          return true;
-        }
+        const data = await res.json();
+        setCurrentUser(data.user);
+        sessionStorage.setItem('arit_user', JSON.stringify(data.user));
+        sessionStorage.setItem('arit_token', data.token);
+        return true;
       }
-    } catch {
-      // Try localStorage fallback
-      try {
-        const localUsers = JSON.parse(localStorage.getItem('arit_users') || '[]');
-        const localUser = localUsers.find((u: any) => u.id === userId);
-        if (localUser) {
-          setCurrentUser(localUser);
-          sessionStorage.setItem('arit_user', JSON.stringify(localUser));
-          return true;
-        }
-      } catch { /* ignore */ }
+      return false;
+    } catch (error) {
+      console.error('Login error:', error);
+      return false;
     }
-
-    // ถ้าดึงไม่ได้ ให้ใช้ข้อมูลจาก mock
-    const { password: _, ...appUser } = mockUser;
-    setCurrentUser(appUser);
-    sessionStorage.setItem('arit_user', JSON.stringify(appUser));
-    return true;
   };
 
-  const setRole = (role: UserRole) => {
-    const user = MOCK_USERS.find(u => u.role === role);
-    if (!user) return;
+  const loginWithGoogle = async (credential: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const res = await fetch('/api/auth/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: credential })
+      });
 
-    const { password: _, ...appUser } = user;
-    setCurrentUser(appUser);
-    sessionStorage.setItem('arit_user', JSON.stringify(appUser));
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUser(data.user);
+        sessionStorage.setItem('arit_user', JSON.stringify(data.user));
+        sessionStorage.setItem('arit_token', data.token);
+        return { success: true };
+      } else {
+        const err = await res.json();
+        return { success: false, error: err.error || 'การเข้าสู่ระบบผิดพลาด' };
+      }
+    } catch (error) {
+      console.error('Google Login error:', error);
+      return { success: false, error: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้' };
+    }
   };
+
+
 
   // ==================== ฟังก์ชันออกจากระบบ ====================
   const logout = () => {
-    setCurrentUser(null);
-    sessionStorage.removeItem('arit_user');
+    import('sweetalert2').then((Swal) => {
+      Swal.default.fire({
+        title: 'ยืนยันการออกจากระบบ?',
+        text: 'คุณต้องการออกจากระบบใช่หรือไม่?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: 'ออกจากระบบ',
+        cancelButtonText: 'ยกเลิก'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          setCurrentUser(null);
+          sessionStorage.removeItem('arit_user');
+          sessionStorage.removeItem('arit_token');
+          window.location.href = '/';
+        }
+      });
+    });
   };
 
   // ==================== ฟังก์ชันอัปเดตข้อมูลผู้ใช้ ====================
@@ -187,9 +146,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     
     try {
       // ส่งข้อมูลไปอัปเดตที่ Backend
+      const token = sessionStorage.getItem('arit_token');
       const res = await fetch(`/api/users/${currentUser.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(updates)
       });
 
@@ -198,6 +161,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // ถ้า server ส่ง error กลับมา (เช่น rate limit) ให้ throw
         if (errData.error) throw new Error(errData.error);
       }
+      
+      const updatedUserFromServer = await res.json();
+      const updated = { ...currentUser, ...updatedUserFromServer };
+      setCurrentUser(updated);
+      sessionStorage.setItem('arit_user', JSON.stringify(updated));
     } catch (err: any) {
       // ถ้า error มาจาก server response (rate limit etc) ให้ throw ต่อ
       if (err?.message && !err.message.includes('fetch')) throw err;
@@ -210,11 +178,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           localStorage.setItem('arit_users', JSON.stringify(users));
         }
       } catch { /* ignore */ }
+      
+      const updated = { ...currentUser, ...updates };
+      setCurrentUser(updated);
+      sessionStorage.setItem('arit_user', JSON.stringify(updated));
+      throw err;
     }
-
-    const updated = { ...currentUser, ...updates };
-    setCurrentUser(updated);
-    sessionStorage.setItem('arit_user', JSON.stringify(updated));
   };
 
   // ==================== คำนวณสิทธิ์การเข้าถึง ====================
@@ -230,7 +199,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     <AuthContext.Provider value={{
       currentUser,
       login,
-      setRole,
+      loginWithGoogle,
       logout,
       isAdmin,
       isStaff,
@@ -255,6 +224,3 @@ export const useAuth = () => {
   return ctx;
 };
 
-/** ดึงรายชื่อผู้ใช้ทั้งหมด (ไม่รวมรหัสผ่าน) สำหรับหน้าจัดการผู้ใช้ */
-export const getMockUsers = (): AppUser[] =>
-  MOCK_USERS.map(({ password: _, ...u }) => u);

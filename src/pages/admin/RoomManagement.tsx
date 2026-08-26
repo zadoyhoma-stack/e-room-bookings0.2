@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Plus, MoreVertical, Edit2, Trash2, Image as ImageIcon, MapPin, Users, Settings2, DoorOpen, Save, X, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ const RoomManagement = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
   
   // For editing
   const [editName, setEditName] = useState("");
@@ -37,22 +38,28 @@ const RoomManagement = () => {
   });
 
   const updateMutation = useMutation({
-    mutationFn: async (room: Partial<Room> & { id: string }) => {
-      const { id, ...data } = room;
-      return ds.updateRoom(id, data);
+    mutationFn: async (room: Partial<Room> & { id?: string }) => {
+      if (isAdding) {
+        return ds.createRoom(room as any);
+      } else {
+        const { id, ...data } = room;
+        return ds.updateRoom(id!, data);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin_rooms"] });
       queryClient.invalidateQueries({ queryKey: ["rooms"] }); // user side rooms might use this key
-      toast({ title: "สำเร็จ", description: "อัปเดตข้อมูลห้องประชุมเรียบร้อยแล้ว" });
+      toast({ title: "สำเร็จ", description: isAdding ? "เพิ่มห้องประชุมใหม่เรียบร้อยแล้ว" : "อัปเดตข้อมูลห้องประชุมเรียบร้อยแล้ว" });
       setIsModalOpen(false);
+      setIsAdding(false);
     },
-    onError: () => {
-      toast({ title: "เกิดข้อผิดพลาด", description: "ไม่สามารถอัปเดตข้อมูลได้", variant: "destructive" });
+    onError: (error: any) => {
+      toast({ title: "เกิดข้อผิดพลาด", description: error.message || "ไม่สามารถอัปเดตข้อมูลได้", variant: "destructive" });
     }
   });
 
   const handleAction = (action: string, room: Room) => {
+    setIsAdding(false);
     if (action === "Edit Details" || action === "Edit Name/Capacity" || action === "Upload Images") {
       setSelectedRoom(room);
       setEditName(room.name);
@@ -72,20 +79,41 @@ const RoomManagement = () => {
     }
   };
 
+  const handleAddNewRoom = () => {
+    setIsAdding(true);
+    setSelectedRoom(null);
+    setEditName("");
+    setEditCapacity("");
+    setEditDescription("");
+    setEditEquipment("");
+    setEditRules("");
+    setEditImage("");
+    setIsModalOpen(true);
+  };
+
   const handleSave = () => {
-    if (!selectedRoom) return;
+    if (!isAdding && !selectedRoom) return;
+    if (!editName.trim()) {
+      toast({ title: "ข้อมูลไม่ครบถ้วน", description: "กรุณากรอกชื่อห้อง", variant: "destructive" });
+      return;
+    }
     updateMutation.mutate({
-      id: selectedRoom.id,
+      ...(selectedRoom ? { id: selectedRoom.id } : {}),
       name: editName,
       capacity: parseInt(editCapacity) || 0,
       description: editDescription,
       equipment: editEquipment.split(",").map(e => e.trim()).filter(Boolean),
       rules: editRules.split("\n").map(r => r.trim()).filter(Boolean),
       image: editImage,
+      status: selectedRoom?.status || "available",
+      location: selectedRoom?.location || "ไม่ได้ระบุ"
     });
   };
 
-  const filteredRooms = rooms.filter(r => r.name.toLowerCase().includes(searchTerm.toLowerCase()));
+  const filteredRooms = useMemo(() => {
+    const term = searchTerm.toLowerCase();
+    return rooms.filter(r => r.name.toLowerCase().includes(term));
+  }, [rooms, searchTerm]);
 
   return (
     <div className="space-y-8 pb-10">
@@ -101,7 +129,7 @@ const RoomManagement = () => {
           </h1>
           <p className="text-slate-500 mt-2">จัดการข้อมูลห้องประชุม ความจุ และสิ่งอำนวยความสะดวก</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/30 h-11 px-6">
+        <Button onClick={handleAddNewRoom} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/30 h-11 px-6">
           <Plus className="w-4 h-4 mr-2" /> เพิ่มห้องใหม่
         </Button>
       </div>
@@ -113,7 +141,7 @@ const RoomManagement = () => {
             placeholder="ค้นหาห้องประชุม..." 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 h-11 bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 rounded-2xl focus:bg-white backdrop-blur-md shadow-sm"
+            className="pl-10 h-11 bg-white/80 dark:bg-slate-900/80 border-slate-200 dark:border-slate-800 rounded-2xl focus:bg-white shadow-sm"
           />
         </div>
       </div>
@@ -123,10 +151,10 @@ const RoomManagement = () => {
         {isLoading ? (
           <div className="col-span-full text-center py-10 text-slate-500">กำลังโหลดข้อมูลห้องประชุม...</div>
         ) : filteredRooms.map((room) => (
-          <Card key={room.id} className="overflow-hidden border border-slate-100 dark:border-slate-800 shadow-lg shadow-slate-200/40 dark:shadow-none bg-white dark:bg-slate-900 rounded-[24px] group hover:shadow-xl transition-all">
+          <Card key={room.id} className="overflow-hidden border border-slate-100 dark:border-slate-800 shadow-lg shadow-slate-200/40 dark:shadow-none bg-white dark:bg-slate-900 rounded-[24px] group hover:shadow-xl transition-shadow duration-300">
             {/* Image Thumbnail */}
             <div className="h-48 relative overflow-hidden bg-slate-100 dark:bg-slate-800">
-              <img src={room.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800"} alt={room.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              <img src={room.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800"} alt={room.name} loading="lazy" decoding="async" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 will-change-transform" />
               <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
               
               <div className="absolute top-4 right-4 flex gap-2">
@@ -190,11 +218,14 @@ const RoomManagement = () => {
       </div>
 
       {/* Room Details Modal */}
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+      <Dialog open={isModalOpen} onOpenChange={(open) => {
+        setIsModalOpen(open);
+        if (!open) setIsAdding(false);
+      }}>
         <DialogContent className="sm:max-w-2xl p-0 overflow-hidden rounded-[24px]">
-          <DialogTitle className="sr-only">แก้ไขห้องประชุม</DialogTitle>
-          <div className="h-48 w-full relative group/image">
-            <img src={editImage || selectedRoom?.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800"} alt={selectedRoom?.name} className="w-full h-full object-cover" />
+          <DialogTitle className="sr-only">{isAdding ? "เพิ่มห้องประชุมใหม่" : "แก้ไขห้องประชุม"}</DialogTitle>
+          <div className="h-48 w-full relative group/image bg-slate-100 dark:bg-slate-800">
+            <img src={editImage || (selectedRoom?.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800")} alt={editName || "Room"} loading="lazy" decoding="async" className="w-full h-full object-cover" />
             <div className="absolute inset-0 bg-black/40" />
             
             {/* Image Upload Overlay */}
@@ -240,7 +271,7 @@ const RoomManagement = () => {
                       // แปลงรูปด้วยคุณภาพ 0.6 เพื่อลดขนาดไฟล์
                       const compressedBase64 = canvas.toDataURL("image/jpeg", 0.6);
                       setEditImage(compressedBase64);
-                      toast({ title: "อัปโหลดสำเร็จ", description: "เปลี่ยนรูปภาพห้องประชุมแล้ว กรุณากดบันทึก" });
+                      toast({ title: "อัปโหลดสำเร็จ", description: "เพิ่มรูปภาพแล้ว กรุณากดบันทึก" });
                     };
                     img.src = event.target?.result as string;
                   };
@@ -248,6 +279,8 @@ const RoomManagement = () => {
                     toast({ title: "เกิดข้อผิดพลาด", description: "ไม่สามารถอ่านไฟล์รูปภาพได้", variant: "destructive" });
                   };
                   reader.readAsDataURL(file);
+                  // ล้างค่า input เพื่อให้อัปโหลดไฟล์เดิมซ้ำได้ (แก้บักอัปโหลดรูปเดิมไม่ขึ้น)
+                  e.target.value = '';
                 }}
               />
               <Label 
@@ -261,13 +294,21 @@ const RoomManagement = () => {
             </div>
 
             <div className="absolute bottom-4 left-6 text-white w-full pr-12">
-              <h2 className="text-2xl font-bold">แก้ไข: {selectedRoom?.name}</h2>
-              <Input 
-                placeholder="URL รูปภาพ..." 
-                value={editImage} 
-                onChange={(e) => setEditImage(e.target.value)}
-                className="mt-2 bg-black/40 border-white/20 text-white placeholder:text-white/60 h-8 rounded-lg text-sm w-3/4 backdrop-blur-md focus:bg-black/60 focus:border-white/40" 
-              />
+              <h2 className="text-2xl font-bold drop-shadow-md">{isAdding ? "เพิ่มห้องใหม่" : `แก้ไข: ${selectedRoom?.name}`}</h2>
+              <div className="flex gap-2 mt-2 w-3/4">
+                <Input 
+                  placeholder="URL รูปภาพ..." 
+                  value={editImage.startsWith('data:image') ? '[อัปโหลดรูปภาพจากเครื่องแล้ว]' : editImage} 
+                  onChange={(e) => setEditImage(e.target.value)}
+                  disabled={editImage.startsWith('data:image')}
+                  className="bg-black/40 border-white/20 text-white placeholder:text-white/60 h-8 rounded-lg text-sm flex-1 backdrop-blur-md focus:bg-black/60 focus:border-white/40 disabled:opacity-90 disabled:cursor-not-allowed font-medium shadow-sm" 
+                />
+                {editImage.startsWith('data:image') && (
+                  <Button variant="destructive" size="sm" className="h-8 rounded-lg px-3 shadow-sm hover:scale-105 transition-transform" onClick={() => setEditImage('')}>
+                    ยกเลิกรูปนี้
+                  </Button>
+                )}
+              </div>
             </div>
             <Button variant="outline" size="icon" className="absolute top-4 right-4 rounded-full bg-black/40 border-white/20 text-white hover:bg-white hover:text-black transition-all backdrop-blur-md z-10" onClick={() => setIsModalOpen(false)}>
               <X className="w-4 h-4" />

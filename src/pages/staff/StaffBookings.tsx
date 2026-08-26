@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, XCircle, Clock, Search, Download, CalendarCheck, Users as UsersIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -7,12 +7,13 @@ import { cn } from "@/lib/utils";
 import { Booking, BookingStatus } from "@/data/mockData";
 import * as ds from "@/services/dataService";
 
-type Tab = "pending" | "approved" | "rejected" | "all";
+type Tab = "pending" | "approved" | "rejected" | "cancelled" | "all";
 
 const tabs: { key: Tab; label: string }[] = [
   { key: "pending", label: "รอตรวจสอบ" },
   { key: "approved", label: "อนุมัติแล้ว" },
   { key: "rejected", label: "ไม่อนุมัติ" },
+  { key: "cancelled", label: "ยกเลิก" },
   { key: "all", label: "ทั้งหมด" },
 ];
 
@@ -26,13 +27,55 @@ const StaffBookings = () => {
     queryFn: () => ds.getBookings(),
   });
 
+  // Listen for real-time updates via Socket.IO -> dataService
+  useEffect(() => {
+    const unsub = ds.onDataChange((key) => {
+      if (key === ds.KEYS.bookings) {
+        qc.invalidateQueries({ queryKey: ["staff_bookings"] });
+      }
+    });
+    return unsub;
+  }, [qc]);
+
   const mutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: BookingStatus }) => {
       return ds.updateBookingStatus(id, status);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["staff_bookings"] }); toast.success("อัปเดตสถานะสำเร็จ"); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["staff_bookings"] }); },
     onError: () => toast.error("เกิดข้อผิดพลาด"),
   });
+
+  const handleStatusChange = async (id: string, status: BookingStatus) => {
+    const isApprove = status === 'approved';
+    const actionText = isApprove ? 'อนุมัติ' : 'ปฏิเสธ';
+    const Swal = (await import('sweetalert2')).default;
+    
+    const result = await Swal.fire({
+      title: `ยืนยันการ${actionText}การจอง?`,
+      text: `คุณแน่ใจหรือไม่ที่จะ${actionText}คำขอจองห้องนี้?`,
+      icon: isApprove ? 'question' : 'warning',
+      showCancelButton: true,
+      confirmButtonColor: isApprove ? '#10b981' : '#f43f5e',
+      cancelButtonColor: '#94a3b8',
+      confirmButtonText: `ใช่, ${actionText}เลย`,
+      cancelButtonText: 'ยกเลิก',
+      reverseButtons: true
+    });
+
+    if (result.isConfirmed) {
+      mutation.mutate({ id, status }, {
+        onSuccess: () => {
+          Swal.fire({
+            title: 'สำเร็จ!',
+            text: `${actionText}การจองเรียบร้อยแล้ว`,
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false
+          });
+        }
+      });
+    }
+  };
 
   const filtered = useMemo(() => {
     let r = tab === "all" ? bookings : bookings.filter(b => b.status === tab);
@@ -44,6 +87,89 @@ const StaffBookings = () => {
   }, [bookings, tab, search]);
 
   const pendingCount = bookings.filter(b => b.status === "pending").length;
+  const prevPendingCount = useRef(pendingCount);
+  const stopAudioRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (pendingCount > prevPendingCount.current) {
+      if (stopAudioRef.current) stopAudioRef.current();
+      
+      const playTick = () => {
+        try {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          const audioCtx = new AudioContextClass();
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+          }
+          
+          let count = 0;
+          const maxCount = 20; // 20 times (every 2s = 40s)
+          
+          const playDing = () => {
+            if (audioCtx.state === 'closed' || count >= maxCount) {
+              clearInterval(intervalId);
+              return;
+            }
+            const t = audioCtx.currentTime;
+            
+            // Ding 1 (A5)
+            const osc1 = audioCtx.createOscillator();
+            const gain1 = audioCtx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(880, t);
+            gain1.gain.setValueAtTime(1, t);
+            gain1.gain.exponentialRampToValueAtTime(0.01, t + 1.5);
+            osc1.connect(gain1);
+            gain1.connect(audioCtx.destination);
+            osc1.start(t);
+            osc1.stop(t + 1.5);
+            
+            // Ding 2 (C#6)
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(1108.73, t);
+            gain2.gain.setValueAtTime(0.8, t);
+            gain2.gain.exponentialRampToValueAtTime(0.01, t + 1.5);
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.start(t);
+            osc2.stop(t + 1.5);
+            
+            count++;
+            
+            if (count >= maxCount) {
+              setTimeout(() => {
+                if (audioCtx.state !== 'closed') audioCtx.close().catch(() => {});
+              }, 2000);
+            }
+          };
+          
+          playDing();
+          const intervalId = setInterval(playDing, 2000);
+          
+          return () => {
+            clearInterval(intervalId);
+            if (audioCtx.state !== 'closed') audioCtx.close().catch(() => {});
+          };
+        } catch (e) {
+          console.error("Audio error", e);
+          return () => {};
+        }
+      };
+      
+      stopAudioRef.current = playTick();
+      toast.info("🔔 มีคำขอจองห้องใหม่เข้ามา!", { duration: 5000 });
+    }
+    
+    prevPendingCount.current = pendingCount;
+  }, [pendingCount]);
+  
+  useEffect(() => {
+    return () => {
+      if (stopAudioRef.current) stopAudioRef.current();
+    };
+  }, []);
 
   const handleExport = () => {
     const wb = XLSX.utils.book_new();
@@ -60,8 +186,9 @@ const StaffBookings = () => {
       approved: { cls: "bg-emerald-50 text-emerald-700 border-emerald-200", icon: CheckCircle, text: "อนุมัติแล้ว" },
       rejected: { cls: "bg-rose-50 text-rose-700 border-rose-200", icon: XCircle, text: "ไม่อนุมัติ" },
       cancelled: { cls: "bg-slate-100 text-slate-500 border-slate-200", icon: XCircle, text: "ยกเลิก" },
+      completed: { cls: "bg-blue-50 text-blue-700 border-blue-200", icon: CheckCircle, text: "เสร็จสิ้น" },
     };
-    const c = cfg[s];
+    const c = cfg[s] || cfg['pending'];
     return <span className={cn("inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border", c.cls)}><c.icon size={14} />{c.text}</span>;
   };
 
@@ -169,14 +296,14 @@ const StaffBookings = () => {
                       {b.status === "pending" && (
                         <div className="flex gap-2 justify-end">
                           <button
-                            onClick={() => mutation.mutate({ id: b.id, status: "approved" })}
+                            onClick={() => handleStatusChange(b.id, "approved")}
                             disabled={mutation.isPending}
                             className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 rounded-lg shadow-sm shadow-emerald-500/20 hover:-translate-y-0.5 transition-all disabled:opacity-50"
                           >
                             <CheckCircle size={14} /> อนุมัติ
                           </button>
                           <button
-                            onClick={() => mutation.mutate({ id: b.id, status: "rejected" })}
+                            onClick={() => handleStatusChange(b.id, "rejected")}
                             disabled={mutation.isPending}
                             className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 hover:border-rose-300 rounded-lg hover:-translate-y-0.5 transition-all disabled:opacity-50"
                           >

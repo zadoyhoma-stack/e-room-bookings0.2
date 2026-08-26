@@ -57,12 +57,31 @@ const StaffRoomStatus = () => {
     const interval = setInterval(() => {
       setRealTimeDate(format(new Date(), "yyyy-MM-dd"));
       setRealTimeHH(format(new Date(), "HH:mm"));
-    }, 10000);
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
 
   const todayStr = realTimeDate;
   const nowHH = realTimeHH;
+
+  const handleToggle = (room: Room, isMaint: boolean) => {
+    import('sweetalert2').then((Swal) => {
+      Swal.default.fire({
+        title: isMaint ? 'ยืนยันการเปิดใช้งานห้อง?' : 'ยืนยันการปิดปรับปรุงห้อง?',
+        text: `คุณต้องการ${isMaint ? 'เปิดใช้งาน' : 'ปิดปรับปรุง'}ห้อง "${room.name}" ใช่หรือไม่?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: isMaint ? '#0ea5e9' : '#ef4444',
+        cancelButtonColor: '#94a3b8',
+        confirmButtonText: 'ยืนยัน',
+        cancelButtonText: 'ยกเลิก'
+      }).then((result) => {
+        if (result.isConfirmed) {
+          toggleMutation.mutate({ id: room.id, status: isMaint ? "available" : "maintenance" });
+        }
+      });
+    });
+  };
 
   const getLive = (roomId: string) => {
     const active = bookings.find(b => b.roomId === roomId && b.date === todayStr && b.status === "approved" && nowHH >= b.startTime && nowHH < b.endTime);
@@ -87,8 +106,7 @@ const StaffRoomStatus = () => {
   return (
     <div className="space-y-8 font-['Kanit',sans-serif] bg-slate-50/30 p-2 md:p-6 rounded-[40px] border border-slate-100/50">
       <div className="relative overflow-hidden rounded-[32px] p-8 md:p-10 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 shadow-2xl shadow-blue-900/30 border border-blue-500/20 text-white flex flex-col md:flex-row justify-between items-start md:items-center gap-6 group">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-sky-400/20 rounded-full blur-[80px] group-hover:bg-sky-400/30 transition-colors duration-700 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-blue-500/20 rounded-full blur-[60px] pointer-events-none" />
+        {/* Background blurs removed to improve performance */}
         
         <div className="relative z-10 flex-1">
           <h1 className="text-4xl md:text-5xl font-black tracking-tight flex items-center gap-4">
@@ -98,10 +116,7 @@ const StaffRoomStatus = () => {
             สถานะห้องประชุม
           </h1>
           <p className="text-sm font-semibold text-sky-100 mt-4 ml-2 flex items-center gap-2">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-300 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-sky-400"></span>
-            </span>
+            <span className="h-2.5 w-2.5 rounded-full bg-sky-400"></span>
             อัปเดตสถานะห้องแบบ Real-time — {format(new Date(), "d MMMM yyyy", { locale: th })}
           </p>
         </div>
@@ -117,7 +132,7 @@ const StaffRoomStatus = () => {
         ].map(s => (
           <div key={s.label} className={cn("flex flex-col gap-1 px-6 py-4 rounded-3xl border shadow-md transition-all duration-300 hover:-translate-y-1 backdrop-blur-sm", s.bg)}>
             <div className="flex items-center gap-2 mb-1">
-              <div className={cn("h-3.5 w-3.5 rounded-full shadow-sm animate-pulse", s.dot)} />
+              <div className={cn("h-3.5 w-3.5 rounded-full shadow-sm", s.dot)} />
               <span className="text-sm text-slate-500 font-bold">{s.label}</span>
             </div>
             <span className={cn("text-4xl font-black drop-shadow-sm font-sans", s.text)}>{s.count}</span>
@@ -166,7 +181,7 @@ const StaffRoomStatus = () => {
                     <p className="text-xs font-semibold text-slate-400 mt-1 uppercase tracking-wider">{room.location}</p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0 bg-slate-50/80 px-3 py-1.5 rounded-full border border-slate-100">
-                    <div className={cn("h-3 w-3 rounded-full animate-pulse", cfg.dot)} />
+                    <div className={cn("h-3 w-3 rounded-full", cfg.dot)} />
                     <span className={cn("text-[11px] font-black uppercase tracking-wide", cfg.textCol)}>{cfg.label}</span>
                   </div>
                 </div>
@@ -210,7 +225,7 @@ const StaffRoomStatus = () => {
                 {/* Maintenance Toggle */}
                 <div className="mt-4 pt-3 border-t border-slate-100 flex justify-end">
                   <button
-                    onClick={() => toggleMutation.mutate({ id: room.id, status: isMaint ? "available" : "maintenance" })}
+                    onClick={() => handleToggle(room, isMaint)}
                     disabled={toggleMutation.isPending}
                     className={cn(
                       "flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors border shadow-sm disabled:opacity-50",

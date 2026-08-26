@@ -6,10 +6,12 @@ import { fileURLToPath } from 'url';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import multer from 'multer';
-
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DB_PATH = path.join(__dirname, 'database.json');
 
 const app = express();
 const httpServer = createServer(app);
@@ -18,16 +20,15 @@ const io = new Server(httpServer, {
     origin: "*",
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE"]
   },
-  // ===== ปรับปรุง Socket.IO ให้เสถียรขึ้น =====
   pingTimeout: 60000,
   pingInterval: 25000,
 });
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
+const prisma = new PrismaClient();
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 
-// Prevent caching for all API requests
 app.use((req, res, next) => {
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.set('Pragma', 'no-cache');
@@ -35,13 +36,11 @@ app.use((req, res, next) => {
   next();
 });
 
-// Setup uploads directory
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir);
 }
 
-// Multer storage config
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
     cb(null, uploadsDir);
@@ -53,77 +52,12 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Serve uploaded files statically
 app.use('/api/uploads', express.static(uploadsDir));
-
-// ===== In-Memory Database Cache =====
-// แทนที่จะอ่าน/เขียนไฟล์ทุก request (blocking I/O)
-// เก็บ data ใน memory แล้วเขียนไฟล์แบบ debounced async
-let dbCache = null;
-let writeTimer = null;
-const WRITE_DELAY = 2000; // เขียนไฟล์หลังจากไม่มีการเปลี่ยนแปลง 2 วินาที
-
-const readDB = () => {
-  if (dbCache) return dbCache;
-  try {
-    const data = fs.readFileSync(DB_PATH, 'utf8');
-    dbCache = JSON.parse(data);
-    if (!dbCache.rooms) dbCache.rooms = [];
-    if (!dbCache.bookings) dbCache.bookings = [];
-    if (!dbCache.problems) dbCache.problems = [];
-    if (!dbCache.evaluations) dbCache.evaluations = [];
-    if (!dbCache.users) dbCache.users = [];
-    return dbCache;
-  } catch (error) {
-    console.error('Error reading database file:', error);
-    dbCache = { rooms: [], bookings: [], problems: [], evaluations: [], users: [] };
-    return dbCache;
-  }
-};
-
-// Debounced async write — ไม่ block event loop
-const writeDB = (data) => {
-  dbCache = data; // อัปเดต cache ทันที
-
-  // Clear timer เก่า แล้วตั้งใหม่
-  if (writeTimer) clearTimeout(writeTimer);
-  writeTimer = setTimeout(() => {
-    fs.writeFile(DB_PATH, JSON.stringify(data, null, 2), 'utf8', (err) => {
-      if (err) {
-        console.error('Error writing database file:', err);
-      }
-    });
-  }, WRITE_DELAY);
-};
-
-// Force flush — สำหรับ graceful shutdown
-const flushDB = () => {
-  if (dbCache && writeTimer) {
-    clearTimeout(writeTimer);
-    try {
-      fs.writeFileSync(DB_PATH, JSON.stringify(dbCache, null, 2), 'utf8');
-      console.log('[DB] Flushed to disk on shutdown');
-    } catch (err) {
-      console.error('[DB] Error flushing:', err);
-    }
-  }
-};
-
-// Graceful shutdown — เขียนไฟล์ก่อนปิด
-process.on('SIGINT', () => { flushDB(); process.exit(0); });
-process.on('SIGTERM', () => { flushDB(); process.exit(0); });
-
-// โหลด database เข้า cache ตั้งแต่เริ่มต้น
-readDB();
-console.log('[DB] Database loaded into memory cache');
 
 // Endpoints
 
-app.get('/', (req, res) => {
-  res.send('ARIT E-ROOMs Backend is running successfully!');
-});
+// Removed root endpoint to allow React frontend to be served on '/'
 
-// Upload endpoint
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
@@ -131,294 +65,735 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
   res.json({ url: `/api/uploads/${req.file.filename}` });
 });
 
-// 1. Get all rooms
-app.get('/api/rooms', (req, res) => {
-  const db = readDB();
-  res.json(db.rooms);
-});
+// Auth
+const JWT_SECRET = process.env.JWT_SECRET || 'arit-secret-key';
 
-// 1.5 Update a room (e.g. status, details)
-app.patch('/api/rooms/:id', (req, res) => {
-  const db = readDB();
-  const roomIndex = db.rooms.findIndex(r => r.id === req.params.id);
-  
-  if (roomIndex === -1) {
-    return res.status(404).json({ error: 'Room not found' });
+// ==================== Middlewares ====================
+const verifyToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบก่อนทำรายการ' });
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Session หมดอายุหรือ Token ไม่ถูกต้อง' });
   }
-  
-  const updates = req.body;
-  db.rooms[roomIndex] = { ...db.rooms[roomIndex], ...updates };
-  
-  writeDB(db);
-  io.emit('room_updated', db.rooms[roomIndex]);
-  res.json(db.rooms[roomIndex]);
-});
+};
 
-// Seed rooms endpoint
-app.post('/api/rooms/seed', (req, res) => {
-  const db = readDB();
-  if (Array.isArray(req.body)) {
-    db.rooms = req.body;
-    writeDB(db);
+const verifyAdminOrStaff = (req, res, next) => {
+  if (!req.user || (req.user.role !== 'admin' && req.user.role !== 'staff')) {
+    return res.status(403).json({ error: 'ไม่มีสิทธิ์เข้าถึง (สำหรับ Admin/Staff เท่านั้น)' });
   }
-  res.json({ success: true, count: db.rooms.length });
-});
+  next();
+};
 
-// 2. Get all bookings
-app.get('/api/bookings', (req, res) => {
-  const db = readDB();
-  res.json(db.bookings);
-});
-
-// 3. Create a new booking request
-app.post('/api/bookings', (req, res) => {
-  const db = readDB();
-  const { roomId, roomName, date, startTime, endTime, topic, notes, participants, userId, userName } = req.body;
-
-  if (!roomId || !date || !startTime || !endTime) {
-    return res.status(400).json({ error: 'Missing required fields' });
+const verifyAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'ไม่มีสิทธิ์เข้าถึง (สำหรับ Admin เท่านั้น)' });
   }
+  next();
+};
 
-  // Check for overlapping bookings
-  const overlappingBooking = db.bookings.find(b =>
-    b.roomId === roomId &&
-    b.date === date &&
-    (b.status === 'pending' || b.status === 'approved') &&
-    (
-      (startTime >= b.startTime && startTime < b.endTime) ||
-      (endTime > b.startTime && endTime <= b.endTime) ||
-      (startTime <= b.startTime && endTime >= b.endTime)
-    )
-  );
+// ==================== State Transition Rules ====================
+const VALID_TRANSITIONS = {
+  'pending':   ['approved', 'rejected', 'cancelled'],
+  'approved':  ['cancelled', 'completed'],
+  'rejected':  [],       // ห้ามเปลี่ยนต่อ (Terminal State)
+  'cancelled': [],       // ห้ามเปลี่ยนต่อ (Terminal State)
+  'completed': [],       // ห้ามเปลี่ยนต่อ (Terminal State)
+};
 
-  if (overlappingBooking) {
-    return res.status(409).json({ error: 'ห้องนี้มีการจองในช่วงเวลาดังกล่าวแล้ว' });
+// ==================== Thai Timezone Helper ====================
+function getThaiNow() {
+  // UTC+7 for Asia/Bangkok
+  const now = new Date();
+  const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+  const thai = new Date(utc + (7 * 60 * 60 * 1000));
+  return thai;
+}
+
+function getThaiDateStr() {
+  const d = getThaiNow();
+  return d.toISOString().split('T')[0];
+}
+
+function getThaiTimeStr() {
+  const d = getThaiNow();
+  return d.toISOString().split('T')[1].substring(0, 5);
+}
+
+// ==================== System Event Logger ====================
+async function logSystemEvent(action, user, type, extra) {
+  try {
+    const date = getThaiDateStr();
+    const time = getThaiTimeStr();
+    await prisma.systemLog.create({
+      data: { action, user: user || 'ระบบ', type: type || 'system', date, time }
+    });
+    io.emit('new_log', { action, user, type, date, time, extra });
+  } catch (e) {
+    console.error('Failed to log event', e);
   }
+}
 
-  const newBooking = {
-    id: `b${Date.now()}`,
-    roomId,
-    roomName,
-    date,
-    startTime,
-    endTime,
-    topic: topic || '',
-    notes: notes || '',
-    status: 'pending',
-    participants: Number(participants) || 2,
-    userId: userId || 'anonymous',
-    userName: userName || 'ผู้ใช้ทั่วไป'
-  };
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '890020262003-0ba7080apdo8slk5h2jk1e80p13do2sc.apps.googleusercontent.com';
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
-  db.bookings.unshift(newBooking); // Add new booking to the top
-  writeDB(db);
-
-  io.emit('new_booking', newBooking);
-
-  res.status(201).json(newBooking);
-});
-
-// 4. Update booking status (approve, reject, cancel)
-app.patch('/api/bookings/:id', (req, res) => {
-  const db = readDB();
-  const { id } = req.params;
-  const { status } = req.body;
-
-  if (!['pending', 'approved', 'rejected', 'cancelled'].includes(status)) {
-    return res.status(400).json({ error: 'Invalid status value' });
-  }
-
-  const bookingIndex = db.bookings.findIndex(b => b.id === id);
-  if (bookingIndex === -1) {
-    return res.status(404).json({ error: 'Booking not found' });
-  }
-
-  db.bookings[bookingIndex].status = status;
-  writeDB(db);
-
-  io.emit('update_booking', db.bookings[bookingIndex]);
-
-  res.json(db.bookings[bookingIndex]);
-});
-
-// 5. Report a problem
-app.post('/api/problems', (req, res) => {
-  const db = readDB();
-  const { room, problemType, details, urgency, rating, image } = req.body;
-
-  if (!room || !problemType || !details) {
-    return res.status(400).json({ error: 'Missing required fields' });
-  }
-
-  const newProblem = {
-    id: `p${Date.now()}`,
-    roomId: room,
-    problemType,
-    details,
-    image: image || null,
-    urgency: urgency || 'medium',
-    rating: rating || 0,
-    status: 'pending',
-    reportedAt: new Date().toISOString()
-  };
-
-  db.problems.unshift(newProblem);
-  writeDB(db);
-
-  io.emit('new_problem', newProblem);
-
-  res.status(201).json(newProblem);
-});
-
-// Get all problems
-app.get('/api/problems', (req, res) => {
-  const db = readDB();
-  res.json(db.problems || []);
-});
-
-// Update problem status
-app.patch('/api/problems/:id', (req, res) => {
-  const db = readDB();
-  const { id } = req.params;
-  const { status } = req.body;
-
-  if (!db.problems) db.problems = [];
-
-  const problemIndex = db.problems.findIndex(p => p.id === id);
-  if (problemIndex === -1) {
-    return res.status(404).json({ error: 'Problem not found' });
-  }
-
-  db.problems[problemIndex].status = status;
-  writeDB(db);
-
-  io.emit('update_problem', db.problems[problemIndex]);
-
-  res.json(db.problems[problemIndex]);
-});
-
-// 8. Submit an evaluation
-app.post('/api/evaluations', (req, res) => {
-  const db = readDB();
-  const { rating, feedback } = req.body;
-
-  if (!db.evaluations) db.evaluations = [];
-
-  const newEvaluation = {
-    id: `e${Date.now()}`,
-    rating,
-    feedback: feedback || '',
-    submittedAt: new Date().toISOString()
-  };
-
-  db.evaluations.unshift(newEvaluation);
-  writeDB(db);
-
-  io.emit('new_evaluation', newEvaluation);
-
-  res.status(201).json(newEvaluation);
-});
-
-// Get all evaluations
-app.get('/api/evaluations', (req, res) => {
-  const db = readDB();
-  res.json(db.evaluations || []);
-});
-
-// 6. Get all users
-app.get('/api/users', (req, res) => {
-  const db = readDB();
-  res.json(db.users || []);
-});
-
-// 7. Update user
-app.patch('/api/users/:id', (req, res) => {
-  const db = readDB();
-  const { id } = req.params;
-  const updates = req.body;
-
-  if (!db.users) db.users = [];
-
-  const userIndex = db.users.findIndex(u => u.id === id);
-  if (userIndex === -1) {
-    return res.status(404).json({ error: 'User not found' });
-  }
-
-  const user = db.users[userIndex];
-
-  // ตรวจสอบการจำกัดจำนวนครั้งการแก้ไขต่อวัน (5 ครั้ง)
-  if (updates.profilePic !== undefined || updates.nickname !== undefined) {
-    const today = new Date().toISOString().split('T')[0];
-    if (!user.editStats) user.editStats = { date: today, count: 0 };
-
-    if (user.editStats.date !== today) {
-      user.editStats = { date: today, count: 0 }; // รีเซ็ตสำหรับวันใหม่
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return res.status(400).json({ error: 'Missing token' });
     }
 
-    if (user.editStats.count >= 5) {
-      return res.status(429).json({ error: 'คุณเปลี่ยนข้อมูลครบกำหนดของวันนี้แล้ว ลองใหม่ในวันพรุ่งนี้' });
+    // Verify Google Token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    if (!payload) {
+      return res.status(401).json({ error: 'Invalid Google token' });
     }
 
-    user.editStats.count += 1;
+    const { email, name, picture } = payload;
+
+    // Check domain @rmu.ac.th
+    if (!email.endsWith('@rmu.ac.th')) {
+      return res.status(403).json({ error: 'อนุญาตเฉพาะอีเมล @rmu.ac.th เท่านั้น' });
+    }
+
+    // Check if user exists, or create a new student
+    let user = await prisma.user.findUnique({
+      where: { email }
+    });
+
+    if (!user) {
+      user = await prisma.user.create({
+        data: {
+          email,
+          name: name || 'นักศึกษา',
+          role: 'student',
+          username: email.split('@')[0], // Use email prefix as username
+          profilePic: picture,
+        }
+      });
+    } else if (picture && user.profilePic !== picture) {
+      // Update profile pic if they already exist but picture changed
+      user = await prisma.user.update({
+        where: { email },
+        data: { profilePic: picture }
+      });
+    }
+
+    // Create system JWT
+    const appToken = jwt.sign(
+      { id: user.id, username: user.username, email: user.email, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    logSystemEvent(`เข้าสู่ระบบด้วย Google`, `${user.name} (${user.role})`, 'security');
+
+    const { password: _, ...userWithoutPassword } = user;
+    
+    res.json({
+      token: appToken,
+      user: userWithoutPassword
+    });
+
+  } catch (err) {
+    console.error('[Google Auth Error]', err);
+    res.status(500).json({ error: 'การยืนยันตัวตนกับ Google ล้มเหลว กรุณาตรวจสอบ Client ID' });
   }
-
-  db.users[userIndex] = { ...user, ...updates };
-  writeDB(db);
-
-  res.json(db.users[userIndex]);
 });
 
-// Delete user
-app.delete('/api/users/:id', (req, res) => {
-  const db = readDB();
-  const { id } = req.params;
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Missing username or password' });
+    }
 
-  if (!db.users) db.users = [];
+    const user = await prisma.user.findUnique({
+      where: { username }
+    });
 
-  const userIndex = db.users.findIndex(u => u.id === id);
-  if (userIndex === -1) {
-    return res.status(404).json({ error: 'User not found' });
+    if (!user || !user.password) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    const isValid = await bcrypt.compare(password, user.password);
+    if (!isValid) {
+      return res.status(401).json({ error: 'Invalid username or password' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, username: user.username, role: user.role },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    logSystemEvent(`เข้าสู่ระบบสำเร็จ`, `${user.name} (${user.role})`, 'security');
+
+    // Don't send password back
+    const { password: _, ...userWithoutPassword } = user;
+    
+    res.json({
+      token,
+      user: userWithoutPassword
+    });
+  } catch (err) {
+    console.error('[Login Error]', err);
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  // Don't allow deleting admin
-  if (db.users[userIndex].role === 'admin') {
-    return res.status(403).json({ error: 'Cannot delete admin user' });
-  }
-
-  const deletedUser = db.users.splice(userIndex, 1)[0];
-  writeDB(db);
-
-  res.json({ message: 'User deleted', user: deletedUser });
 });
 
-// Start server
+// Rooms
+app.get('/api/rooms', async (req, res) => {
+  try {
+    const rooms = await prisma.room.findMany({
+      orderBy: { id: 'asc' }
+    });
+    res.json(rooms);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/rooms', verifyToken, verifyAdminOrStaff, async (req, res) => {
+  try {
+    const newRoom = await prisma.room.create({
+      data: {
+        id: `r${Date.now()}`,
+        name: req.body.name,
+        capacity: req.body.capacity,
+        equipment: req.body.equipment || [],
+        status: req.body.status || 'available',
+        location: req.body.location || 'ไม่ได้ระบุ',
+        description: req.body.description || '',
+        image: req.body.image || null,
+        rules: req.body.rules || [],
+      }
+    });
+    io.emit('room_updated', newRoom);
+    logSystemEvent(`เพิ่มห้องใหม่ ${newRoom.name}`, 'แอดมิน', 'system');
+    res.status(201).json(newRoom);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create room' });
+  }
+});
+
+app.patch('/api/rooms/:id', verifyToken, verifyAdminOrStaff, async (req, res) => {
+  try {
+    const updated = await prisma.room.update({
+      where: { id: req.params.id },
+      data: req.body
+    });
+    io.emit('room_updated', updated);
+    logSystemEvent(`แก้ไขข้อมูล/สถานะห้อง ${updated.name}`, 'แอดมิน', 'system');
+    res.json(updated);
+  } catch (err) {
+    res.status(404).json({ error: 'Room not found' });
+  }
+});
+
+app.post('/api/rooms/seed', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    if (Array.isArray(req.body)) {
+      await prisma.room.createMany({
+        data: req.body,
+        skipDuplicates: true
+      });
+    }
+    const count = await prisma.room.count();
+    res.json({ success: true, count });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Bookings
+app.get('/api/bookings', async (req, res) => {
+  try {
+    const bookings = await prisma.booking.findMany({
+      orderBy: { date: 'desc' },
+      include: { 
+        room: { select: { name: true } }
+      }
+    });
+    // Map data slightly to match old format which expected roomName at root level
+    const mapped = bookings.map(b => ({
+      ...b,
+      roomName: b.room.name
+    }));
+    res.json(mapped);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/bookings', verifyToken, async (req, res) => {
+  try {
+    const { roomId, roomName, date, startTime, endTime, topic, notes, participants, userId, userName, phone, email, department, participantList, extraEquipment } = req.body;
+    const ipAddress = req.headers['x-forwarded-for'] || req.socket.remoteAddress || req.ip;
+    const requesterInfo = `${req.user.username || req.user.id} (${req.user.role})`;
+
+    // === Validation 1: Required Fields ===
+    if (!roomId || !date || !startTime || !endTime) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // === Validation 2: Time Rules (08:00 - 15:00) ===
+    if (startTime < '08:00' || startTime > '15:00') {
+      logSystemEvent(`BOOKING_REJECTED: เวลานอกระบบ ${startTime}`, requesterInfo, 'booking');
+      return res.status(400).json({ error: 'เวลาเริ่มต้นไม่อยู่ในช่วงที่อนุญาตให้จอง (08:00 - 15:00)' });
+    }
+    if (startTime >= endTime) {
+      return res.status(400).json({ error: 'เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น' });
+    }
+
+    // === Validation 3: No Past Dates (Thai Timezone) ===
+    const today = getThaiDateStr();
+    if (date < today) {
+      return res.status(400).json({ error: 'ไม่สามารถจองเวลาย้อนหลังได้' });
+    }
+
+    // === Validation 4: Room Status Check (ข้อ 10, 17) ===
+    const room = await prisma.room.findUnique({ where: { id: roomId } });
+    if (!room) {
+      return res.status(404).json({ error: 'ไม่พบห้องในระบบ' });
+    }
+    if (room.status !== 'available') {
+      logSystemEvent(`BOOKING_REJECTED: ห้อง ${room.name} สถานะ ${room.status}`, requesterInfo, 'booking');
+      return res.status(400).json({ error: `ห้อง ${room.name} ไม่สามารถจองได้ (สถานะ: ${room.status === 'maintenance' ? 'ปิดปรับปรุง' : room.status})` });
+    }
+
+    // === Validation 5: Prevent Double Booking — Conflict Check (ข้อ 4, 5, 21) ===
+    const overlapping = await prisma.booking.findFirst({
+      where: {
+        roomId: roomId,
+        date: date,
+        status: { in: ['pending', 'approved'] },
+        startTime: { lt: endTime },
+        endTime: { gt: startTime }
+      }
+    });
+
+    if (overlapping) {
+      logSystemEvent(`BOOKING_CONFLICT: ${roomId} ${date} ${startTime}-${endTime} ชนกับ Booking#${overlapping.id}`, requesterInfo, 'booking');
+      return res.status(409).json({ error: 'ห้องนี้มีการจองในช่วงเวลาดังกล่าวแล้ว (Double Booking)' });
+    }
+
+    // === Validation 6: Double Submit Protection (ข้อ 20) ===
+    const actualUserId = req.user.id || userId;
+    const recentDuplicate = await prisma.booking.findFirst({
+      where: {
+        userId: actualUserId,
+        roomId: roomId,
+        date: date,
+        startTime: startTime,
+        endTime: endTime,
+        status: { in: ['pending', 'approved'] }
+      }
+    });
+    if (recentDuplicate) {
+      logSystemEvent(`DOUBLE_SUBMIT_BLOCKED: ${roomId} ${date} ${startTime}-${endTime}`, requesterInfo, 'booking');
+      return res.status(409).json({ error: 'คุณได้ส่งคำขอจองนี้ไปแล้ว กรุณารอการอนุมัติ' });
+    }
+
+    // === Create User if not exists ===
+    const actualUserName = req.user.username || userName || 'ผู้ใช้ทั่วไป';
+    const user = await prisma.user.upsert({
+      where: { id: actualUserId },
+      update: { name: userName || 'ผู้ใช้ทั่วไป' },
+      create: {
+        id: actualUserId,
+        name: userName || 'ผู้ใช้ทั่วไป',
+        email: `${actualUserId}@placeholder.com`,
+      }
+    });
+
+    // === Sanitize input (XSS Prevention) ===
+    const sanitize = (str) => {
+      if (typeof str !== 'string') return str;
+      return str.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+    };
+
+    // === Create Booking ===
+    const newBooking = await prisma.booking.create({
+      data: {
+        roomId,
+        date,
+        startTime,
+        endTime,
+        topic: sanitize(topic) || '',
+        notes: sanitize(notes) || '',
+        status: 'pending',
+        participants: Number(participants) || 2,
+        userId: actualUserId,
+        userName: sanitize(actualUserName) || null,
+        phone: sanitize(phone) || null,
+        email: sanitize(email) || null,
+        department: sanitize(department) || null,
+        participantList: participantList || [],
+        extraEquipment: sanitize(extraEquipment) || null,
+        ipAddress: typeof ipAddress === 'string' ? ipAddress : null,
+      }
+    });
+
+    const bookingResponse = { ...newBooking, roomName: room.name };
+
+    io.emit('new_booking', bookingResponse);
+    logSystemEvent(`BOOKING_CREATE: ${room.name} ${date} ${startTime}-${endTime} Booking#${newBooking.id}`, requesterInfo, 'booking');
+    res.status(201).json(bookingResponse);
+  } catch (err) {
+    console.error(err);
+    logSystemEvent(`BOOKING_ERROR: ${err.message}`, 'ระบบ', 'system');
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.patch('/api/bookings/:id', verifyToken, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const requesterInfo = `${req.user.username || req.user.id} (${req.user.role})`;
+
+    if (!['pending', 'approved', 'rejected', 'cancelled', 'completed'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
+
+    // === Step 1: ตรวจว่า Booking มีอยู่จริง ===
+    const existing = await prisma.booking.findUnique({
+      where: { id: req.params.id },
+      include: { room: true }
+    });
+    if (!existing) return res.status(404).json({ error: 'Booking not found' });
+
+    // === Step 2: State Transition Validation (ข้อ 3) ===
+    const allowedNext = VALID_TRANSITIONS[existing.status] || [];
+    if (!allowedNext.includes(status)) {
+      logSystemEvent(`INVALID_TRANSITION: Booking#${req.params.id} ${existing.status} → ${status}`, requesterInfo, 'booking');
+      return res.status(400).json({
+        error: `ไม่สามารถเปลี่ยนสถานะจาก "${existing.status}" เป็น "${status}" ได้`
+      });
+    }
+
+    // === Step 3: Ownership & Role check (ข้อ 12, 13) ===
+    if (req.user.role !== 'admin' && req.user.role !== 'staff') {
+      // Normal user can only cancel their own booking
+      if (existing.userId !== req.user.id) {
+        logSystemEvent(`UNAUTHORIZED_ATTEMPT: User ${req.user.id} พยายามแก้ไข Booking#${req.params.id} ของ User ${existing.userId}`, requesterInfo, 'security');
+        return res.status(403).json({ error: 'ไม่มีสิทธิ์แก้ไขการจองของผู้อื่น' });
+      }
+      if (status !== 'cancelled') {
+        return res.status(403).json({ error: 'ผู้ใช้ทั่วไปสามารถเปลี่ยนสถานะได้เฉพาะ ยกเลิก (cancelled) เท่านั้น' });
+      }
+    }
+
+    // === Step 4: Approve ต้องตรวจ Conflict ใหม่ (ข้อ 8) ===
+    if (status === 'approved') {
+      // 4a. ตรวจว่า Room ยัง Active
+      if (existing.room && existing.room.status !== 'available') {
+        logSystemEvent(`APPROVE_DENIED: ห้อง ${existing.room.name} สถานะ ${existing.room.status}`, requesterInfo, 'booking');
+        return res.status(400).json({ error: `ไม่สามารถอนุมัติได้ ห้อง ${existing.room.name} สถานะ: ${existing.room.status}` });
+      }
+
+      // 4b. ตรวจว่าวันที่ยังไม่เป็นอดีต
+      const today = getThaiDateStr();
+      if (existing.date < today) {
+        return res.status(400).json({ error: 'ไม่สามารถอนุมัติได้ วันที่จองผ่านไปแล้ว' });
+      }
+
+      // 4c. ตรวจ Conflict ใหม่ (Exclude ตัวเอง)
+      const conflicting = await prisma.booking.findFirst({
+        where: {
+          id: { not: req.params.id },  // Exclude ตัวเอง
+          roomId: existing.roomId,
+          date: existing.date,
+          status: { in: ['approved'] },  // ตรวจเฉพาะที่ approved แล้ว
+          startTime: { lt: existing.endTime },
+          endTime: { gt: existing.startTime }
+        }
+      });
+
+      if (conflicting) {
+        logSystemEvent(`APPROVE_CONFLICT_DENIED: Booking#${req.params.id} ชนกับ Booking#${conflicting.id} (${existing.roomId} ${existing.date} ${existing.startTime}-${existing.endTime})`, requesterInfo, 'booking');
+        return res.status(409).json({
+          error: `ไม่สามารถอนุมัติได้ เนื่องจากช่วงเวลานี้มีการจองที่อนุมัติแล้วขัดแย้งกัน (Booking #${conflicting.id.substring(0,8)}...)`
+        });
+      }
+    }
+
+    // === Step 5: Execute Update ===
+    const updateData = { status };
+    // ถ้าเป็น approve/reject ให้บันทึกข้อมูลผู้ดำเนินการ
+    if (status === 'approved' || status === 'rejected') {
+      updateData.reviewedBy = req.user.username || req.user.id;
+      updateData.reviewedAt = new Date();
+    }
+
+    const updated = await prisma.booking.update({
+      where: { id: req.params.id },
+      data: updateData
+    });
+
+    // === Step 6: Emit + Log ===
+    io.emit('update_booking', updated);
+    const actionLabel = status === 'approved' ? 'BOOKING_APPROVE' :
+                        status === 'rejected' ? 'BOOKING_REJECT' :
+                        status === 'cancelled' ? 'BOOKING_CANCEL' : `STATUS_CHANGE_${status.toUpperCase()}`;
+    logSystemEvent(`${actionLabel}: Booking#${req.params.id} ${existing.roomId} ${existing.date} ${existing.startTime}-${existing.endTime}`, requesterInfo, 'booking');
+    res.json(updated);
+  } catch (err) {
+    console.error('[PATCH bookings/:id Error]', err);
+    res.status(500).json({ error: 'Failed to update booking status' });
+  }
+});
+
+// Problems
+app.post('/api/problems', async (req, res) => {
+  try {
+    const { room, problemType, details, urgency, rating, image } = req.body;
+    if (!room || !problemType || !details) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const newProblem = await prisma.problem.create({
+      data: {
+        roomId: room,
+        problemType,
+        details,
+        image: image || null,
+        urgency: urgency || 'medium',
+        status: 'pending',
+        rating: rating || 0
+      }
+    });
+
+    io.emit('new_problem', newProblem);
+    res.status(201).json(newProblem);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/problems', async (req, res) => {
+  try {
+    const problems = await prisma.problem.findMany({ orderBy: { reportedAt: 'desc' } });
+    res.json(problems);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.patch('/api/problems/:id', verifyToken, verifyAdminOrStaff, async (req, res) => {
+  try {
+    const { status } = req.body;
+    const updated = await prisma.problem.update({
+      where: { id: req.params.id },
+      data: { status }
+    });
+    io.emit('update_problem', updated);
+    res.json(updated);
+  } catch (err) {
+    res.status(404).json({ error: 'Problem not found' });
+  }
+});
+
+// Evaluations
+app.post('/api/evaluations', async (req, res) => {
+  try {
+    const { rating, feedback } = req.body;
+    const newEval = await prisma.evaluation.create({
+      data: {
+        rating,
+        feedback: feedback || ''
+      }
+    });
+    io.emit('new_evaluation', newEval);
+    res.status(201).json(newEval);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/evaluations', async (req, res) => {
+  try {
+    const evals = await prisma.evaluation.findMany({ orderBy: { submittedAt: 'desc' } });
+    res.json(evals);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// Users
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await prisma.user.findMany({
+      orderBy: { id: 'asc' }
+    });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.patch('/api/users/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Allow users to edit their own profile, or admins to edit anyone
+    if (req.user.id !== id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'ไม่มีสิทธิ์แก้ไขข้อมูลผู้อื่น' });
+    }
+
+    const updates = req.body;
+    
+    // ตรวจสอบการจำกัดจำนวนครั้งการแก้ไขต่อวัน (5 ครั้ง)
+    if (updates.profilePic !== undefined || updates.nickname !== undefined) {
+      const user = await prisma.user.findUnique({ where: { id } });
+      if (!user) return res.status(404).json({ error: 'User not found' });
+
+      const today = new Date().toISOString().split('T')[0];
+      let editCount = user.profileEditCount || 0;
+      let editDate = user.lastProfileEditDate || '';
+
+      if (editDate !== today) {
+        editCount = 0; // รีเซ็ตสำหรับวันใหม่
+      }
+
+      if (editCount >= 5) {
+        return res.status(429).json({ error: 'คุณเปลี่ยนข้อมูลครบกำหนดของวันนี้แล้ว ลองใหม่ในวันพรุ่งนี้' });
+      }
+
+      updates.profileEditCount = editCount + 1;
+      updates.lastProfileEditDate = today;
+    }
+    
+    const updated = await prisma.user.update({
+      where: { id },
+      data: updates
+    });
+    logSystemEvent(`อัปเดตข้อมูลผู้ใช้ ${updated.name}`, updated.name, 'user');
+    res.json(updated);
+  } catch (err) {
+    res.status(404).json({ error: 'User not found' });
+  }
+});
+
+app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.params.id } });
+    if (!user) return res.status(404).json({ error: 'User not found' });
+    if (user.role === 'admin') return res.status(403).json({ error: 'Cannot delete admin user' });
+
+    await prisma.user.delete({ where: { id: req.params.id } });
+    res.json({ message: 'User deleted', user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// System Logs & Reports
+app.get('/api/logs', async (req, res) => {
+  try {
+    const logs = await prisma.systemLog.findMany({ orderBy: { createdAt: 'desc' }, take: 100 });
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/logs', async (req, res) => {
+  try {
+    const { action, user, type } = req.body;
+    await logSystemEvent(action, user, type);
+    res.status(201).json({ message: 'Log created' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/reports', async (req, res) => {
+  try {
+    const reports = await prisma.report.findMany({ orderBy: { createdAt: 'desc' } });
+    res.json(reports);
+  } catch (err) {
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+app.post('/api/reports', async (req, res) => {
+  try {
+    const { type, room, format } = req.body;
+    const now = new Date();
+    const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    const date = localDate.toISOString().split('T')[0];
+
+    const report = await prisma.report.create({
+      data: { type, room, format: format || 'PDF', date, status: 'Generated' }
+    });
+    res.status(201).json(report);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Auto-expire bookings every 30s (using Thai Timezone)
+setInterval(async () => {
+  try {
+    const currentDate = getThaiDateStr();
+    const currentHour = getThaiTimeStr();
+
+    const expiredBookings = await prisma.booking.findMany({
+      where: {
+        status: { in: ['pending', 'approved'] },
+        OR: [
+          { date: { lt: currentDate } },
+          { date: currentDate, endTime: { lte: currentHour } }
+        ]
+      }
+    });
+
+    if (expiredBookings.length > 0) {
+      for (const booking of expiredBookings) {
+        const updated = await prisma.booking.update({
+          where: { id: booking.id },
+          data: { status: 'completed' }
+        });
+        io.emit('update_booking', updated);
+      }
+      console.log(`[Auto-Expire] Updated ${expiredBookings.length} expired bookings at ${currentDate} ${currentHour}`);
+    }
+  } catch (err) {
+    console.error('[Auto-Expire Error]', err);
+  }
+}, 30000);
+
+// ==================== Serve React Frontend (Production) ====================
+// Check if running in production or if the dist folder exists
+const distPath = path.join(__dirname, '..', 'dist');
+if (fs.existsSync(distPath)) {
+  console.log(`Serving static files from ${distPath}`);
+  app.use(express.static(distPath));
+
+  // Handle React Router (Fallback for all non-API routes)
+  app.get('*', (req, res) => {
+    // Only fallback for non-API requests
+    if (!req.path.startsWith('/api/')) {
+      res.sendFile(path.join(distPath, 'index.html'));
+    } else {
+      res.status(404).json({ error: 'API route not found' });
+    }
+  });
+} else {
+  console.log("No 'dist' folder found. Running in development mode.");
+}
+
 httpServer.listen(PORT, () => {
   console.log(`ARIT E-ROOMs backend running on http://localhost:${PORT}`);
 });
-
-// Auto-expire bookings based on real time
-setInterval(() => {
-  const db = readDB();
-  let updated = false;
-  
-  const now = new Date();
-  // Adjust for local timezone if needed, or use UTC. Assuming server uses local time.
-  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-  const currentDate = localDate.toISOString().split('T')[0];
-  const currentHour = localDate.toISOString().split('T')[1].substring(0, 5);
-
-  db.bookings.forEach(booking => {
-    if (booking.status === 'approved' || booking.status === 'pending') {
-      if (booking.date < currentDate || (booking.date === currentDate && booking.endTime <= currentHour)) {
-        booking.status = 'completed'; 
-        updated = true;
-        io.emit('update_booking', booking);
-      }
-    }
-  });
-
-  if (updated) {
-    writeDB(db);
-    console.log(`[Auto-Expire] Updated expired bookings at ${currentDate} ${currentHour}`);
-  }
-}, 30000); // Check every 30 seconds

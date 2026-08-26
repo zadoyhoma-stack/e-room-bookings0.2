@@ -40,6 +40,7 @@ const DialogContent = React.forwardRef<
         className,
       )}
       {...props}
+      aria-describedby={props["aria-describedby"] || undefined}
     >
       {children}
       <DialogPrimitive.Close className="absolute right-4 top-4 rounded-full bg-slate-100/60 p-1.5 opacity-100 ring-offset-background transition-all hover:bg-slate-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground z-50">

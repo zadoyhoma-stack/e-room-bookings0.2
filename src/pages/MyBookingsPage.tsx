@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MyBookings } from "@/components/sections/MyBookings";
+import { CancelConfirmModal } from "@/components/modals/CancelConfirmModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { Booking } from "@/data/mockData";
 import * as ds from "@/services/dataService";
@@ -13,6 +14,7 @@ const MyBookingsPage = () => {
   const { currentUser } = useAuth();
   const { toast } = useToast();
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [cancelBooking, setCancelBooking] = useState<Booking | null>(null);
 
   useEffect(() => {
     ds.getBookings().then(data => setBookings(data));
@@ -26,16 +28,31 @@ const MyBookingsPage = () => {
     return unsub;
   }, []);
 
-  const handleCancel = (b: Booking) => {
-    ds.updateBookingStatus(b.id, "cancelled")
-      .then(updatedBooking => {
-        setBookings(prev => prev.map(item => item.id === updatedBooking.id ? updatedBooking : item));
-        toast({ title: "ยกเลิกการจองแล้ว" });
-      })
-      .catch(err => {
-        console.error("Cancel error:", err);
-        toast({ title: "เกิดข้อผิดพลาด", description: "ไม่สามารถยกเลิกการจองได้", variant: "destructive" });
+  const handleCancelClick = (b: Booking) => {
+    setCancelBooking(b);
+  };
+
+  const handleConfirmCancel = () => {
+    if (!cancelBooking) return;
+    
+    import('sweetalert2').then((Swal) => {
+      Swal.default.fire({
+        title: 'กำลังยกเลิกการจอง...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.default.showLoading()
       });
+
+      ds.updateBookingStatus(cancelBooking.id, "cancelled")
+        .then(updatedBooking => {
+          setBookings(prev => prev.map(item => item.id === updatedBooking.id ? updatedBooking : item));
+          setCancelBooking(null);
+          Swal.default.fire({ title: 'ยกเลิกสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false });
+        })
+        .catch(err => {
+          console.error("Cancel error:", err);
+          Swal.default.fire({ title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถยกเลิกการจองได้', icon: 'error' });
+        });
+    });
   };
 
   const handleAddToCalendar = (b: Booking) => {
@@ -62,11 +79,18 @@ const MyBookingsPage = () => {
         <div className="flex-1 py-6 sm:py-10">
           <MyBookings 
             bookings={bookings}
-            onCancel={handleCancel}
+            onCancel={handleCancelClick}
             onAddToCalendar={handleAddToCalendar}
           />
         </div>
       </div>
+
+      <CancelConfirmModal
+        open={!!cancelBooking}
+        onOpenChange={(o) => !o && setCancelBooking(null)}
+        booking={cancelBooking}
+        onConfirm={handleConfirmCancel}
+      />
     </div>
   );
 };

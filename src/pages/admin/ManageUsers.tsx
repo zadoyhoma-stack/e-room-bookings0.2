@@ -50,6 +50,10 @@ const ManageUsers = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
+  const [viewModalOpen, setViewModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<StudentData | null>(null);
   
   const { data: users = [], isLoading } = useQuery({
     queryKey: ["admin_users"],
@@ -74,10 +78,21 @@ const ManageUsers = () => {
   );
 
   const handleAction = (action: string, student: StudentData) => {
-    toast({
-      title: `การดำเนินการ: ${action}`,
-      description: `ดำเนินการกับ ${student.name} แล้ว`,
-    });
+    if (action === "View") {
+      setSelectedUser(student);
+      setViewModalOpen(true);
+    } else if (action === "Edit") {
+      setSelectedUser(student);
+      setEditModalOpen(true);
+    } else if (action === "Reset Password") {
+      setSelectedUser(student);
+      setResetModalOpen(true);
+    } else {
+      toast({
+        title: `การดำเนินการ: ${action}`,
+        description: `ดำเนินการกับ ${student.name} แล้ว`,
+      });
+    }
   };
 
   return (
@@ -192,6 +207,9 @@ const ManageUsers = () => {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48 rounded-xl p-2">
+                          <DropdownMenuItem className="rounded-lg cursor-pointer py-2" onClick={() => handleAction("View", student)}>
+                            <User className="w-4 h-4 mr-2 text-emerald-500" /> ดูโปรไฟล์
+                          </DropdownMenuItem>
                           <DropdownMenuItem className="rounded-lg cursor-pointer py-2" onClick={() => handleAction("Edit", student)}>
                             <Edit2 className="w-4 h-4 mr-2 text-blue-500" /> แก้ไขข้อมูล
                           </DropdownMenuItem>
@@ -225,6 +243,128 @@ const ManageUsers = () => {
           </div>
         </div>
       </Card>
+
+      {/* View User Modal */}
+      <Dialog open={viewModalOpen} onOpenChange={setViewModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>ข้อมูลโปรไฟล์</DialogTitle>
+            <DialogDescription>
+              รายละเอียดข้อมูลของ {selectedUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center py-4 gap-4">
+            <div className="w-24 h-24 rounded-full overflow-hidden border-4 border-slate-100 shadow-sm">
+              {selectedUser?.profilePic ? (
+                <img src={selectedUser.profilePic} alt={selectedUser.name} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-blue-50 text-blue-500 flex items-center justify-center">
+                  <User className="w-10 h-10" />
+                </div>
+              )}
+            </div>
+            <div className="w-full space-y-3 mt-2">
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-sm font-medium text-slate-500">ชื่อ-นามสกุล</span>
+                <span className="text-sm font-bold text-slate-900 dark:text-white">{selectedUser?.name}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-sm font-medium text-slate-500">อีเมล</span>
+                <span className="text-sm font-bold text-slate-900 dark:text-white">{selectedUser?.email}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-sm font-medium text-slate-500">รหัสนักศึกษา</span>
+                <span className="text-sm font-bold text-slate-900 dark:text-white">{selectedUser?.studentId}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-sm font-medium text-slate-500">คณะ</span>
+                <span className="text-sm font-bold text-slate-900 dark:text-white">{selectedUser?.faculty}</span>
+              </div>
+              <div className="flex justify-between border-b pb-2">
+                <span className="text-sm font-medium text-slate-500">สถานะ</span>
+                <span className={`text-sm font-bold ${selectedUser?.status === 'active' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                  {selectedUser?.status === 'active' ? 'ใช้งานปกติ' : 'ถูกระงับ'}
+                </span>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="default" className="rounded-xl w-full" onClick={() => setViewModalOpen(false)}>ปิดหน้าต่าง</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Modal */}
+      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>แก้ไขข้อมูลผู้ใช้งาน</DialogTitle>
+            <DialogDescription>
+              แก้ไขข้อมูลส่วนตัวและสิทธิ์การใช้งานของ {selectedUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label htmlFor="name" className="text-sm font-medium text-slate-700">ชื่อ-นามสกุล</label>
+              <Input id="name" defaultValue={selectedUser?.name} className="h-10 rounded-xl" />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="email" className="text-sm font-medium text-slate-700">อีเมล</label>
+              <Input id="email" defaultValue={selectedUser?.email} className="h-10 rounded-xl" />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="studentId" className="text-sm font-medium text-slate-700">รหัสนักศึกษา</label>
+              <Input id="studentId" defaultValue={selectedUser?.studentId} className="h-10 rounded-xl" />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="faculty" className="text-sm font-medium text-slate-700">คณะ</label>
+              <Input id="faculty" defaultValue={selectedUser?.faculty} className="h-10 rounded-xl" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="rounded-xl" onClick={() => setEditModalOpen(false)}>ยกเลิก</Button>
+            <Button className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white" onClick={() => {
+              toast({ title: "สำเร็จ", description: "บันทึกข้อมูลเรียบร้อยแล้ว" });
+              setEditModalOpen(false);
+            }}>บันทึกการเปลี่ยนแปลง</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Modal */}
+      <Dialog open={resetModalOpen} onOpenChange={setResetModalOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>รีเซ็ตรหัสผ่าน</DialogTitle>
+            <DialogDescription>
+              ตั้งรหัสผ่านใหม่ให้กับ {selectedUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <div className="p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-800 rounded-xl">
+              <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                <strong className="font-bold">หมายเหตุ:</strong> ระบบมีการเข้ารหัสความปลอดภัย (Encryption) แบบทางเดียว จึง<strong>ไม่สามารถดูรหัสผ่านเดิมได้</strong> หากผู้ใช้ลืมรหัสผ่าน แอดมินสามารถตั้งรหัสผ่านใหม่ให้ได้ที่นี่
+              </p>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="newPassword" className="text-sm font-medium text-slate-700">รหัสผ่านใหม่</label>
+              <Input id="newPassword" type="text" placeholder="ตั้งรหัสผ่านใหม่..." className="h-10 rounded-xl font-mono" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" className="rounded-xl" onClick={() => setResetModalOpen(false)}>ยกเลิก</Button>
+            <Button variant="default" className="rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30" onClick={() => {
+              const newPass = (document.getElementById('newPassword') as HTMLInputElement)?.value;
+              if (!newPass) {
+                toast({ title: "ข้อผิดพลาด", description: "กรุณากรอกรหัสผ่านใหม่", variant: "destructive" });
+                return;
+              }
+              toast({ title: "สำเร็จ", description: `เปลี่ยนรหัสผ่านใหม่เป็น "${newPass}" เรียบร้อยแล้ว` });
+              setResetModalOpen(false);
+            }}>บันทึกรหัสผ่านใหม่</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );

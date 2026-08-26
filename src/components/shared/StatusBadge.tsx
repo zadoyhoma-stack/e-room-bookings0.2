@@ -4,9 +4,10 @@ import { STATUS_LABELS } from "@/data/mockData";
 interface StatusBadgeProps {
   status: string;
   className?: string;
+  customText?: string;
 }
 
-export const StatusBadge = ({ status, className }: StatusBadgeProps) => {
+export const StatusBadge = ({ status, className, customText }: StatusBadgeProps) => {
   const colorMap: Record<string, string> = {
     available: 'bg-emerald-100 text-emerald-700 border-emerald-200',
     occupied: 'bg-rose-100 text-rose-700 border-rose-200',
@@ -23,7 +24,7 @@ export const StatusBadge = ({ status, className }: StatusBadgeProps) => {
       colorMap[status] || 'bg-gray-100 text-gray-600',
       className
     )}>
-      {STATUS_LABELS[status] || status}
+      {customText || STATUS_LABELS[status] || status}
     </span>
   );
 };

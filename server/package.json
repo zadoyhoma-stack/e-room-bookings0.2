@@ -9,12 +9,17 @@
     "dev": "nodemon --ignore database.json index.js"
   },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "express": "^4.19.2",
+    "google-auth-library": "^11.0.2",
+    "jsonwebtoken": "^9.0.3",
     "multer": "^2.2.0",
     "socket.io": "^4.8.3"
   },
   "devDependencies": {
-    "nodemon": "^3.1.0"
+    "nodemon": "^3.1.0",
+    "prisma": "^5.22.0"
   }
 }

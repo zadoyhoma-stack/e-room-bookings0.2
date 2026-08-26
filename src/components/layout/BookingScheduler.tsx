@@ -14,8 +14,8 @@ interface BookingSchedulerProps {
 }
 
 const HOURS = [
-  '10:00', '11:00', '12:00', '13:00', 
-  '14:00', '15:00', '16:00'
+  '08:00', '09:00', '10:00', '11:00', '12:00', 
+  '13:00', '14:00', '15:00'
 ];
 
 export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, realTimeHH, realTimeDate, onTimeSlotClick }: BookingSchedulerProps) => {
@@ -34,10 +34,21 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
   }, [bookings, selectedDateStr]);
 
   const toggleRoom = (roomId: string) => {
-    setExpandedRooms(prev => ({
-      ...prev,
-      [roomId]: !prev[roomId]
-    }));
+    setExpandedRooms(prev => {
+      const isExpanding = !prev[roomId];
+      if (isExpanding) {
+        setTimeout(() => {
+          const el = document.getElementById(`room-detail-${roomId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }, 200);
+      }
+      return {
+        ...prev,
+        [roomId]: isExpanding
+      };
+    });
   };
 
   const getSlotDetails = (room: Room, time: string) => {
@@ -46,10 +57,28 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
     }
 
     const roomBookings = bookingsByRoom[room.id] || [];
-    const booking = roomBookings.find(b => time >= b.startTime && time < b.endTime);
+    // กรองเฉพาะ Booking ที่ "ล็อกห้อง" — pending + approved + completed
+    const activeBookings = roomBookings.filter(b => 
+      b.status === 'pending' || b.status === 'approved' || b.status === 'completed'
+    );
+    
+    const booking = activeBookings.find(b => {
+      const [slotH, slotM] = time.split(':').map(Number);
+      const slotStart = slotH * 60 + slotM;
+      // Default slot duration is 1 hour for the grid blocks
+      const slotEnd = (slotH + 1) * 60 + slotM;
+
+      const [bStartH, bStartM] = (b.startTime || '00:00').split(':').map(Number);
+      const bStart = bStartH * 60 + bStartM;
+      const [bEndH, bEndM] = (b.endTime || '00:00').split(':').map(Number);
+      const bEnd = bEndH * 60 + bEndM;
+
+      // กฎเวลาทับซ้อน: slotStart < b.endTime AND slotEnd > b.startTime
+      return slotStart < bEnd && slotEnd > bStart;
+    });
 
     if (booking) {
-      if (booking.status === 'approved') {
+      if (booking.status === 'approved' || booking.status === 'completed') {
         return { status: 'booked', label: 'จองแล้ว' };
       }
       if (booking.status === 'pending') {
@@ -142,6 +171,18 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
             {/* Time Slots Section */}
             <div className="flex-1 min-w-0 flex items-stretch justify-start xl:justify-end">
               <div className="bg-slate-800/25 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/60 rounded-xl p-3 sm:p-4 shadow-sm w-full h-full flex flex-col justify-center">
+                
+                {/* Booking Hint */}
+                <div className="w-full flex justify-start xl:justify-end mb-3">
+                  <span className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-blue-500/20 dark:bg-blue-900/40 rounded-full text-[12px] sm:text-[13px] font-bold text-blue-50 dark:text-blue-200 border border-blue-400/30 shadow-inner">
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-300 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-100"></span>
+                    </span>
+                    👉 จองห้องที่นี่ กดที่ช่องสี่เหลี่ยมสีขาวได้เลย
+                  </span>
+                </div>
+
                 <div className="flex flex-wrap gap-3 sm:gap-4 justify-start xl:justify-end w-full">
                   {HOURS.map(hour => {
                   const slot = getSlotDetails(room, hour);
@@ -155,13 +196,13 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
                     textClass = "text-[#0275d8] dark:text-sky-400 font-extrabold";
                     labelClass = "text-[#3ea4f9] dark:text-sky-300 font-semibold";
                   } else if (slot.status === 'pending') {
-                    slotClass = "bg-amber-100/90 dark:bg-amber-900/50 cursor-not-allowed shadow-md border-white/40 dark:border-amber-700/40";
-                    textClass = "text-amber-700 dark:text-amber-400 font-bold";
-                    labelClass = "text-amber-600 dark:text-amber-300/80 font-medium";
+                    slotClass = "bg-slate-300/80 dark:bg-slate-600/50 cursor-not-allowed shadow-inner border-slate-400/50 dark:border-slate-500/40";
+                    textClass = "text-slate-600 dark:text-slate-400 font-bold";
+                    labelClass = "text-slate-500 dark:text-slate-400/80 font-medium";
                   } else if (slot.status === 'booked') {
-                    slotClass = "bg-white/20 dark:bg-slate-800/60 cursor-not-allowed shadow-md border-white/30 dark:border-slate-600/40";
-                    textClass = "text-white dark:text-slate-300 font-semibold";
-                    labelClass = "text-white/80 dark:text-slate-400 font-medium";
+                    slotClass = "bg-slate-400/90 dark:bg-slate-700/80 cursor-not-allowed shadow-inner border-slate-500/50 dark:border-slate-600/40";
+                    textClass = "text-slate-100 dark:text-slate-300 font-semibold line-through";
+                    labelClass = "text-slate-200 dark:text-slate-400 font-medium";
                   } else if (slot.status === 'maintenance') {
                     slotClass = "bg-black/20 dark:bg-black/40 cursor-not-allowed border-white/10 dark:border-slate-700/30";
                     textClass = "text-white/50 dark:text-slate-500 font-semibold line-through";
@@ -194,53 +235,80 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
           </div>
           
           {/* Expanded Room Details */}
-          <div className={cn(
-            "grid transition-all duration-300 ease-in-out",
+          <div id={`room-detail-${room.id}`} className={cn(
+            "grid transition-all duration-500 ease-in-out",
             expandedRooms[room.id] ? "grid-rows-[1fr] opacity-100 mt-4" : "grid-rows-[0fr] opacity-0"
           )}>
             <div className="overflow-hidden">
-              <div className="bg-slate-200/95 dark:bg-slate-800/90 rounded-2xl p-4 border border-slate-300 dark:border-slate-700/50 shadow-md flex flex-col md:flex-row gap-6 mx-2">
-                <div className="w-full md:w-1/4 h-48 md:h-auto rounded-2xl overflow-hidden shrink-0 relative border border-slate-300 dark:border-slate-700">
-                  <img src={room.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800"} alt={room.name} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute bottom-3 left-3 right-3 text-white">
-                    <h4 className="font-bold text-lg leading-tight">{room.name}</h4>
+              <div className="relative overflow-hidden bg-white/60 dark:bg-slate-900/40 backdrop-blur-xl rounded-[24px] p-6 sm:p-8 border border-white/60 dark:border-white/10 shadow-[0_8px_30px_rgb(0,0,0,0.04)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.1)] flex flex-col lg:flex-row gap-8 mx-0 sm:mx-2 group/detail">
+                {/* Decorative background element */}
+                <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-400/10 dark:bg-blue-500/10 blur-3xl rounded-full pointer-events-none" />
+                <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-400/10 dark:bg-purple-500/10 blur-3xl rounded-full pointer-events-none" />
+                
+                <div className="w-full lg:w-[320px] h-[240px] rounded-[20px] overflow-hidden shrink-0 relative border border-white/40 dark:border-white/10 shadow-lg group-hover/detail:shadow-xl transition-all duration-500">
+                  <img src={room.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800"} alt={room.name} className="w-full h-full object-cover transition-transform duration-700 group-hover/detail:scale-105" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-slate-900/20 to-transparent" />
+                  <div className="absolute bottom-5 left-5 right-5 text-white">
+                    <span className="inline-block px-3 py-1 mb-2.5 bg-blue-500/80 backdrop-blur-md rounded-md text-[11px] font-bold tracking-wider uppercase shadow-sm">
+                      {room.location}
+                    </span>
+                    <h4 className="font-bold text-2xl leading-tight text-white/95">{room.name}</h4>
                   </div>
                 </div>
-                <div className="flex-1 space-y-5">
-                  <div>
-                    <h5 className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold text-base mb-2">
-                      <Info className="w-5 h-5 text-blue-500" />
+                
+                <div className="flex-1 flex flex-col justify-center space-y-5 relative z-10">
+                  {/* Details section */}
+                  <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-[16px] p-5 sm:p-6 border border-white/60 dark:border-white/5 shadow-sm hover:shadow-md transition-shadow">
+                    <h5 className="flex items-center gap-3 text-slate-800 dark:text-slate-100 font-bold text-[17px] mb-2.5">
+                      <div className="p-1.5 bg-blue-100 dark:bg-blue-500/20 rounded-lg text-blue-600 dark:text-blue-400">
+                        <Info className="w-4 h-4" />
+                      </div>
                       รายละเอียด
                     </h5>
-                    <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">
+                    <p className="text-slate-600 dark:text-slate-300 text-[14.5px] leading-relaxed pl-[36px]">
                       {room.description || "ไม่มีรายละเอียด"}
                     </p>
                   </div>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <h5 className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold text-base mb-2">
-                        <Wifi className="w-5 h-5 text-blue-500" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    {/* Facilities */}
+                    <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-[16px] p-5 border border-white/60 dark:border-white/5 shadow-sm hover:shadow-md transition-shadow">
+                      <h5 className="flex items-center gap-3 text-slate-800 dark:text-slate-100 font-bold text-[17px] mb-3.5">
+                        <div className="p-1.5 bg-indigo-100 dark:bg-indigo-500/20 rounded-lg text-indigo-600 dark:text-indigo-400">
+                          <Wifi className="w-4 h-4" />
+                        </div>
                         สิ่งอำนวยความสะดวก
                       </h5>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-2 pl-[36px]">
                         {room.equipment?.map((eq, i) => (
-                          <span key={i} className="bg-white dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-2.5 py-1 rounded-md text-xs font-semibold border border-slate-300 dark:border-slate-600 shadow-sm">
+                          <span key={i} className="flex items-center gap-1.5 bg-white/80 dark:bg-slate-700/80 hover:bg-indigo-50 dark:hover:bg-indigo-500/20 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded-full text-[13px] font-medium border border-slate-200/50 dark:border-slate-600/50 shadow-sm transition-colors cursor-default">
+                            <CheckCircle className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
                             {eq}
                           </span>
-                        )) || <span className="text-sm text-slate-500">ไม่มีข้อมูล</span>}
+                        )) || <span className="text-[14px] text-slate-500 pl-[36px]">ไม่มีข้อมูล</span>}
                       </div>
                     </div>
-                    <div>
-                      <h5 className="flex items-center gap-2 text-slate-800 dark:text-slate-200 font-bold text-base mb-2">
-                        <Users className="w-5 h-5 text-orange-500" />
+                    
+                    {/* Rules */}
+                    <div className="bg-white/50 dark:bg-slate-800/50 backdrop-blur-md rounded-[16px] p-5 border border-white/60 dark:border-white/5 shadow-sm hover:shadow-md transition-shadow">
+                      <h5 className="flex items-center gap-3 text-slate-800 dark:text-slate-100 font-bold text-[17px] mb-3.5">
+                        <div className="p-1.5 bg-orange-100 dark:bg-orange-500/20 rounded-lg text-orange-600 dark:text-orange-400">
+                          <Users className="w-4 h-4" />
+                        </div>
                         กฎการใช้งาน
                       </h5>
-                      <ul className="text-sm text-slate-700 dark:text-slate-300 space-y-1.5 list-disc pl-5 marker:text-blue-500">
+                      <ul className="text-[14px] text-slate-600 dark:text-slate-300 space-y-2.5 pl-[36px]">
                         {room.rules?.map((rule, i) => (
-                          <li key={i}>{rule}</li>
-                        )) || <li>โปรดรักษาความสะอาด</li>}
+                          <li key={i} className="flex items-start gap-2.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-orange-400 mt-2 shrink-0 shadow-[0_0_8px_rgba(251,146,60,0.6)]" />
+                            <span className="leading-relaxed">{rule}</span>
+                          </li>
+                        )) || (
+                          <li className="flex items-start gap-2.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-orange-400 mt-2 shrink-0 shadow-[0_0_8px_rgba(251,146,60,0.6)]" />
+                            <span className="leading-relaxed">โปรดรักษาความสะอาด</span>
+                          </li>
+                        )}
                       </ul>
                     </div>
                   </div>

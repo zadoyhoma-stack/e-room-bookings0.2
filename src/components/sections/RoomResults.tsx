@@ -30,7 +30,7 @@ export const RoomResults = ({ rooms, onViewDetails, onRequestBooking }: RoomResu
 
             <div className="flex items-start justify-between mb-2">
               <h3 className="font-bold text-slate-800 text-sm leading-tight">{room.name}</h3>
-              <StatusBadge status={room.status} />
+              <StatusBadge status={room.status} customText={room.occupiedText} />
             </div>
 
             <div className="flex items-center gap-1 text-xs text-slate-500 mb-1">

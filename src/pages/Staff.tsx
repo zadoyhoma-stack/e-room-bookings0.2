@@ -1,5 +1,5 @@
 import { Routes, Route, Link, useLocation, Navigate } from "react-router-dom";
-import { CalendarCheck, DoorOpen, Star, Home, LogOut, Users, Menu, AlertTriangle, LayoutDashboard, Moon, Sun } from "lucide-react";
+import { CalendarCheck, DoorOpen, Star, Home, LogOut, Users, Menu, AlertTriangle, LayoutDashboard, Moon, Sun, Activity } from "lucide-react";
 import React, { Suspense } from "react";
 
 // Lazy-load ทุก sub-page
@@ -8,6 +8,7 @@ const StaffBookings = React.lazy(() => import("./staff/StaffBookings"));
 const StaffRoomStatus = React.lazy(() => import("./staff/StaffRoomStatus"));
 const StaffEvaluations = React.lazy(() => import("./staff/StaffEvaluations"));
 const StaffProblems = React.lazy(() => import("./staff/StaffProblems"));
+const ActivityLogs = React.lazy(() => import("./admin/ActivityLogs"));
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -47,12 +48,10 @@ const Staff = () => {
   const { data: bookings = [] } = useQuery<Booking[]>({
     queryKey: ["staff_bookings"],
     queryFn: () => ds.getBookings(),
-    refetchInterval: 15000,
   });
   const { data: problems = [] } = useQuery<Problem[]>({
     queryKey: ["staff_problems"],
     queryFn: () => ds.getProblems(),
-    refetchInterval: 15000,
   });
 
   const pendingBookings = bookings.filter((b) => b.status === "pending").length;
@@ -65,6 +64,7 @@ const Staff = () => {
   const navItems = [
     { name: "ภาพรวม", path: "/staff", icon: LayoutDashboard, badge: 0 },
     { name: "อนุมัติการจอง", path: "/staff/bookings", icon: CalendarCheck, badge: pendingBookings },
+    { name: "สถานะและประวัติ", path: "/staff/monitoring", icon: Activity, badge: 0 },
     { name: "สถานะห้อง", path: "/staff/rooms", icon: DoorOpen, badge: 0 },
     { name: "รายงานปัญหา", path: "/staff/problems", icon: AlertTriangle, badge: pendingProblems },
     { name: "แบบประเมิน", path: "/staff/evaluations", icon: Star, badge: 0 },
@@ -166,7 +166,7 @@ const Staff = () => {
               <p className="text-sm font-bold mb-1">ARIT Support</p>
               <p className="text-xs text-sky-50 mb-3 leading-relaxed opacity-90">พบปัญหาการใช้งานระบบ? ติดต่อเจ้าหน้าที่ดูแลระบบได้เลยครับ</p>
               <button className="text-[11px] font-semibold bg-white/20 hover:bg-white/30 transition-colors rounded-lg px-3 py-2 backdrop-blur-sm w-full flex items-center justify-center gap-1.5">
-                ติดต่อศูนย์คอมพิวเตอร์
+                ติดต่อเจ้าหน้าที่ธีรพงศ์ ชื่นชู
               </button>
             </div>
             {/* Decor blobs */}
@@ -214,6 +214,7 @@ const Staff = () => {
                 <Routes>
                   <Route path="/" element={<StaffDashboard />} />
                   <Route path="/bookings" element={<StaffBookings />} />
+                  <Route path="/monitoring" element={<ActivityLogs />} />
                   <Route path="/rooms" element={<StaffRoomStatus />} />
                   <Route path="/problems" element={<StaffProblems />} />
                   <Route path="/evaluations" element={<StaffEvaluations />} />

@@ -9,59 +9,55 @@ interface SummaryCardsProps {
 
 export const SummaryCards = ({ totalRooms, availableRooms, inUseRooms, maintenanceRooms }: SummaryCardsProps) => {
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8 w-full max-w-5xl mx-auto px-4">
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-2 w-full max-w-5xl mx-auto px-4">
       {/* Total Rooms */}
-      <div className="bg-white/10 backdrop-blur-md border border-white/30 p-4 rounded-2xl relative overflow-hidden group shadow-lg hover:bg-white/20 transition-all duration-300">
-        <div className="absolute -right-4 -top-4 w-20 h-20 bg-indigo-400/30 rounded-full blur-2xl group-hover:bg-indigo-400/40 transition-all duration-500" />
+      <div className="bg-white dark:bg-[#3a3b3c] p-4 rounded-xl relative overflow-hidden group transition-all duration-300 shadow-sm border border-transparent dark:border-slate-600/50">
         <div className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/30 border border-indigo-400/50 text-indigo-200 flex items-center justify-center shrink-0 shadow-inner">
+          <div className="w-10 h-10 rounded-full bg-[#1877f2]/15 dark:bg-[#1877f2]/20 text-[#1877f2] dark:text-[#4599ff] flex items-center justify-center shrink-0">
             <LayoutGrid className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-200">ห้องทั้งหมด</p>
-            <p className="text-2xl font-bold text-white drop-shadow-md">{totalRooms}</p>
+            <p className="text-[13px] font-semibold text-[#65676b] dark:text-[#b0b3b8]">ห้องทั้งหมด</p>
+            <p className="text-2xl font-bold text-[#050505] dark:text-[#e4e6eb] leading-none mt-1">{totalRooms}</p>
           </div>
         </div>
       </div>
 
       {/* Available */}
-      <div className="bg-white/10 backdrop-blur-md border border-white/30 p-4 rounded-2xl relative overflow-hidden group shadow-lg hover:bg-white/20 transition-all duration-300">
-        <div className="absolute -right-4 -top-4 w-20 h-20 bg-sky-400/30 rounded-full blur-2xl group-hover:bg-sky-400/40 transition-all duration-500" />
+      <div className="bg-white dark:bg-[#3a3b3c] p-4 rounded-xl relative overflow-hidden group transition-all duration-300 shadow-sm border border-transparent dark:border-slate-600/50">
         <div className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-xl bg-sky-500/30 border border-sky-400/50 text-sky-200 flex items-center justify-center shrink-0 shadow-inner">
+          <div className="w-10 h-10 rounded-full bg-[#31a24c]/15 dark:bg-[#31a24c]/20 text-[#31a24c] dark:text-[#42b75e] flex items-center justify-center shrink-0">
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-200">ห้องว่าง</p>
-            <p className="text-2xl font-bold text-white drop-shadow-md">{availableRooms}</p>
+            <p className="text-[13px] font-semibold text-[#65676b] dark:text-[#b0b3b8]">ห้องว่าง</p>
+            <p className="text-2xl font-bold text-[#050505] dark:text-[#e4e6eb] leading-none mt-1">{availableRooms}</p>
           </div>
         </div>
       </div>
 
       {/* In Use */}
-      <div className="bg-white/10 backdrop-blur-md border border-white/30 p-4 rounded-2xl relative overflow-hidden group shadow-lg hover:bg-white/20 transition-all duration-300">
-        <div className="absolute -right-4 -top-4 w-20 h-20 bg-pink-400/30 rounded-full blur-2xl group-hover:bg-pink-400/40 transition-all duration-500" />
+      <div className="bg-white dark:bg-[#3a3b3c] p-4 rounded-xl relative overflow-hidden group transition-all duration-300 shadow-sm border border-transparent dark:border-slate-600/50">
         <div className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-xl bg-pink-500/30 border border-pink-400/50 text-pink-200 flex items-center justify-center shrink-0 shadow-inner">
+          <div className="w-10 h-10 rounded-full bg-[#e41e3f]/15 dark:bg-[#e41e3f]/20 text-[#e41e3f] dark:text-[#f33a58] flex items-center justify-center shrink-0">
             <MonitorPlay className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-200">ถูกจองใช้งาน</p>
-            <p className="text-2xl font-bold text-white drop-shadow-md">{inUseRooms}</p>
+            <p className="text-[13px] font-semibold text-[#65676b] dark:text-[#b0b3b8]">ถูกจองใช้งาน</p>
+            <p className="text-2xl font-bold text-[#050505] dark:text-[#e4e6eb] leading-none mt-1">{inUseRooms}</p>
           </div>
         </div>
       </div>
 
       {/* Maintenance */}
-      <div className="bg-white/10 backdrop-blur-md border border-white/30 p-4 rounded-2xl relative overflow-hidden group shadow-lg hover:bg-white/20 transition-all duration-300">
-        <div className="absolute -right-4 -top-4 w-20 h-20 bg-slate-400/30 rounded-full blur-2xl group-hover:bg-slate-400/40 transition-all duration-500" />
+      <div className="bg-white dark:bg-[#3a3b3c] p-4 rounded-xl relative overflow-hidden group transition-all duration-300 shadow-sm border border-transparent dark:border-slate-600/50">
         <div className="flex items-center gap-3 relative z-10">
-          <div className="w-10 h-10 rounded-xl bg-slate-500/30 border border-slate-400/50 text-slate-200 flex items-center justify-center shrink-0 shadow-inner">
+          <div className="w-10 h-10 rounded-full bg-[#f5a623]/15 dark:bg-[#f5a623]/20 text-[#e59410] dark:text-[#f5a623] flex items-center justify-center shrink-0">
             <Wrench className="w-4 h-4" />
           </div>
           <div>
-            <p className="text-xs font-medium text-slate-200">ปิดปรับปรุง</p>
-            <p className="text-2xl font-bold text-white drop-shadow-md">{maintenanceRooms}</p>
+            <p className="text-[13px] font-semibold text-[#65676b] dark:text-[#b0b3b8]">ปิดปรับปรุง</p>
+            <p className="text-2xl font-bold text-[#050505] dark:text-[#e4e6eb] leading-none mt-1">{maintenanceRooms}</p>
           </div>
         </div>
       </div>

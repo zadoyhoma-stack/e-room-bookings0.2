@@ -46,7 +46,8 @@ export const AdminDashboardModal = ({ open, onOpenChange, mode, bookings, onAppr
   }, [] as { name: string; bookings: number }[]);
 
   const bookingsByRoom = bookings.reduce((acc, booking) => {
-    const room = booking.roomName.split(' ')[1] || booking.roomName;
+    const roomName = booking.roomName || 'ไม่ระบุห้อง';
+    const room = roomName.split(' ')[1] || roomName;
     const existing = acc.find(item => item.name === room);
     if (existing) {
       existing.value += 1;

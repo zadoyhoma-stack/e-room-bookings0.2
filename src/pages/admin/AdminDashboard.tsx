@@ -1,49 +1,75 @@
-import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Users, Calendar, AlertTriangle, TrendingUp, Download, Building, ArrowUpRight, ArrowDownRight, Clock, CheckCircle, XCircle, MonitorPlay, Activity, LogIn, CheckCircle2, Building2, Calendar as CalendarIcon } from "lucide-react";
-import { format, subDays, isSameDay } from "date-fns";
-import { th } from "date-fns/locale";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
-import * as XLSX from "xlsx";
-import { Room, Booking, Problem, Evaluation } from "@/data/mockData";
-import { Button } from "@/components/ui/button";
+import { Users, TrendingUp, MonitorPlay, Activity, CheckCircle2, Building2, Calendar as CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, AreaChart, Area } from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
 import * as ds from "@/services/dataService";
-import { cn } from "@/lib/utils";
+
+const timeToMinutes = (timeStr: string) => {
+  const [h, m] = (timeStr || "00:00").split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
 
 const AdminDashboard = () => {
   const { data: bookings = [] } = useQuery({ queryKey: ["admin_bookings"], queryFn: () => ds.getBookings() });
   const { data: rooms = [] } = useQuery({ queryKey: ["admin_rooms"], queryFn: () => ds.getRooms() });
+  const { data: users = [] } = useQuery({ queryKey: ["admin_users"], queryFn: () => ds.getUsers() });
 
   // Dashboard Stats calculations
   const totalBookings = bookings.length;
   const totalRooms = rooms.length;
+  const activeUsers = users.length;
   
   const now = new Date();
   const todayStr = format(now, 'yyyy-MM-dd');
-  const nowHH = format(now, 'HH:mm');
-  const activeBookings = bookings.filter(b => b.date === todayStr && b.status === "approved" && nowHH >= b.startTime && nowHH < b.endTime);
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const activeBookings = bookings.filter(b => b.date === todayStr && b.status === "approved" && nowMins >= timeToMinutes(b.startTime) && nowMins < timeToMinutes(b.endTime));
   const availableRoomsCount = Math.max(0, totalRooms - activeBookings.length);
 
-  const activeUsers = 124; // Mocked
-  const bookingRate = "78%"; // Mocked
+  const bookingRate = totalRooms > 0 ? Math.round((activeBookings.length / totalRooms) * 100) + "%" : "0%";
 
-  // Mock data for charts
-  const monthlyTrends = [
-    { name: "ม.ค.", bookings: 45 }, { name: "ก.พ.", bookings: 52 }, { name: "มี.ค.", bookings: 38 },
-    { name: "เม.ย.", bookings: 65 }, { name: "พ.ค.", bookings: 48 }, { name: "มิ.ย.", bookings: 71 },
-  ];
+  // Real data for charts
+  const monthlyTrendsMap: Record<string, number> = {};
+  bookings.forEach(b => {
+    if (!b.date) return;
+    const [yyyy, mm] = b.date.split('-');
+    if (yyyy && mm) {
+      const key = `${yyyy}-${mm}`;
+      monthlyTrendsMap[key] = (monthlyTrendsMap[key] || 0) + 1;
+    }
+  });
+  
+  const monthlyTrends = Object.keys(monthlyTrendsMap).sort().slice(-6).map(key => {
+    const [, mm] = key.split('-');
+    const monthNames = ["", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+    return { name: monthNames[parseInt(mm)] || key, bookings: monthlyTrendsMap[key] };
+  });
+  if (monthlyTrends.length === 0) {
+    monthlyTrends.push({ name: "ยังไม่มีข้อมูล", bookings: 0 });
+  }
 
-  const roomUsage = [
-    { name: "ห้องประชุม A", usage: 85 }, { name: "ห้องประชุม B", usage: 62 }, 
-    { name: "ห้องอ่านหนังสือ C", usage: 93 }, { name: "ห้องบอร์ดรูม", usage: 41 },
-  ];
+  const roomUsageMap: Record<string, number> = {};
+  bookings.forEach(b => {
+    if (b.roomName) {
+      roomUsageMap[b.roomName] = (roomUsageMap[b.roomName] || 0) + 1;
+    }
+  });
+  const roomUsage = Object.keys(roomUsageMap).map(k => ({ name: k, usage: roomUsageMap[k] })).sort((a,b) => b.usage - a.usage).slice(0, 4);
+  if (roomUsage.length === 0) {
+    roomUsage.push({ name: "ยังไม่มีข้อมูล", usage: 0 });
+  }
 
-  const peakUsage = [
-    { time: "08:00", count: 12 }, { time: "10:00", count: 35 }, { time: "12:00", count: 15 },
-    { time: "14:00", count: 42 }, { time: "16:00", count: 28 }, { time: "18:00", count: 8 },
-  ];
+  const peakUsageMap: Record<string, number> = {};
+  bookings.forEach(b => {
+    if (b.startTime) {
+      const hour = b.startTime.split(':')[0] + ":00";
+      peakUsageMap[hour] = (peakUsageMap[hour] || 0) + 1;
+    }
+  });
+  const peakUsage = Object.keys(peakUsageMap).sort().map(k => ({ time: k, count: peakUsageMap[k] }));
+  if (peakUsage.length === 0) {
+    peakUsage.push({ time: "08:00", count: 0 });
+  }
 
   return (
     <div className="space-y-8 pb-10">
@@ -65,7 +91,7 @@ const AdminDashboard = () => {
             </div>
           </CardHeader>
           <CardContent className="relative z-10">
-            <div className="text-3xl font-black">{totalBookings > 0 ? totalBookings : 156}</div>
+            <div className="text-3xl font-black">{totalBookings || 0}</div>
             <div className="flex items-center mt-2 text-xs font-medium text-blue-100 bg-white/10 w-fit px-2 py-1 rounded-full">
               <TrendingUp className="w-3 h-3 mr-1" /> +12.5% ในเดือนนี้
             </div>
@@ -81,7 +107,7 @@ const AdminDashboard = () => {
             </div>
           </CardHeader>
           <CardContent className="relative z-10">
-            <div className="text-3xl font-black">{totalRooms > 0 ? totalRooms : 12}</div>
+            <div className="text-3xl font-black">{totalRooms || 0}</div>
             <div className="flex items-center mt-2 text-xs font-medium text-sky-50 bg-white/10 w-fit px-2 py-1 rounded-full">
               <CheckCircle2 className="w-3 h-3 mr-1" /> {availableRoomsCount} ห้องว่างใช้งาน
             </div>
@@ -121,12 +147,9 @@ const AdminDashboard = () => {
         </Card>
       </div>
 
-      {/* Main Sections Grid */}
-      <div className="grid lg:grid-cols-3 gap-8">
+      {/* Main Sections */}
+      <div className="space-y-8">
         
-        {/* Left Column: Charts (takes up 2 columns on large screens) */}
-        <div className="lg:col-span-2 space-y-8">
-          
           {/* Chart 1 */}
           <Card className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-lg rounded-[32px] overflow-hidden">
             <CardHeader className="px-8 pt-8 pb-0">
@@ -198,79 +221,6 @@ const AdminDashboard = () => {
               </CardContent>
             </Card>
           </div>
-        </div>
-
-        {/* Right Column: Real-Time Monitoring */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-            <MonitorPlay className="w-5 h-5 text-emerald-500" />
-            สถานะเรียลไทม์
-          </h2>
-          
-          <Card className="bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-900/50 border-slate-100 dark:border-slate-800 shadow-xl shadow-slate-200/50 dark:shadow-none rounded-[32px] overflow-hidden">
-            <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm">
-              <div>
-                <div className="text-sm font-semibold text-slate-500 dark:text-slate-400">ผู้ใช้งานออนไลน์</div>
-                <div className="text-3xl font-black text-slate-800 dark:text-white mt-1 flex items-center gap-3">
-                  42
-                  <span className="relative flex h-3 w-3">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
-                  </span>
-                </div>
-              </div>
-              <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-500/10 rounded-2xl flex items-center justify-center">
-                <Users className="w-6 h-6 text-emerald-500" />
-              </div>
-            </div>
-            
-            <div className="p-6 space-y-5">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">เข้าสู่ระบบล่าสุด</h3>
-              
-              {[
-                { name: "Sompong J.", role: "นักศึกษา", time: "เมื่อสักครู่" },
-                { name: "Malee W.", role: "เจ้าหน้าที่", time: "2 นาทีที่แล้ว" },
-                { name: "John Doe", role: "นักศึกษา", time: "5 นาทีที่แล้ว" },
-              ].map((user, i) => (
-                <div key={i} className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-600 flex items-center justify-center font-bold text-sm">
-                    {user.name.charAt(0)}
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-sm font-bold text-slate-800 dark:text-slate-200">{user.name}</div>
-                    <div className="text-xs text-slate-500">{user.role}</div>
-                  </div>
-                  <div className="text-xs font-medium text-slate-400">{user.time}</div>
-                </div>
-              ))}
-            </div>
-
-            <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/50">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-4">การจองล่าสุด</h3>
-              <div className="space-y-4">
-                <div className="flex gap-3">
-                  <div className="mt-0.5">
-                    <span className="relative flex h-2.5 w-2.5">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-500"></span>
-                    </span>
-                  </div>
-                  <div>
-                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">ห้องประชุม A ถูกจอง</div>
-                    <div className="text-xs text-slate-500 mt-0.5">โดย Nattapong • วันนี้ 14:00</div>
-                  </div>
-                </div>
-                <div className="flex gap-3">
-                  <div className="mt-0.5 w-2.5 h-2.5 rounded-full bg-slate-300 dark:bg-slate-600" />
-                  <div>
-                    <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">ห้องอ่านหนังสือ C สิ้นสุดการจอง</div>
-                    <div className="text-xs text-slate-500 mt-0.5">10 นาทีที่แล้ว</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </div>
       </div>
       
     </div>

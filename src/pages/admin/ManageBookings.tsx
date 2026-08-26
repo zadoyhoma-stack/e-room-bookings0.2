@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, XCircle, Clock, Trash2, Trophy, Download } from "lucide-react";
 import { toast } from "sonner";
@@ -21,18 +21,59 @@ const ManageBookings = () => {
     queryFn: () => ds.getBookings()
   });
 
+  // Listen for real-time updates via Socket.IO -> dataService
+  useEffect(() => {
+    const unsub = ds.onDataChange((key) => {
+      if (key === ds.KEYS.bookings) {
+        queryClient.invalidateQueries({ queryKey: ["admin_bookings"] });
+      }
+    });
+    return unsub;
+  }, [queryClient]);
+
   const mutation = useMutation({
     mutationFn: async ({ id, status }: { id: string; status: BookingStatus }) => {
       return ds.updateBookingStatus(id, status);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin_bookings"] });
-      toast.success("อัปเดตสถานะการจองสำเร็จ");
     },
     onError: () => {
       toast.error("เกิดข้อผิดพลาดในการอัปเดตสถานะ");
     }
   });
+
+  const handleStatusChange = async (id: string, status: BookingStatus) => {
+    const isApprove = status === 'approved';
+    const actionText = isApprove ? 'อนุมัติ' : 'ปฏิเสธ';
+    const Swal = (await import('sweetalert2')).default;
+    
+    const result = await Swal.fire({
+      title: `ยืนยันการ${actionText}การจอง?`,
+      text: `คุณแน่ใจหรือไม่ที่จะ${actionText}คำขอจองห้องนี้?`,
+      icon: isApprove ? 'question' : 'warning',
+      showCancelButton: true,
+      confirmButtonColor: isApprove ? '#16a34a' : '#d33',
+      cancelButtonColor: '#64748b',
+      confirmButtonText: `ใช่, ${actionText}เลย`,
+      cancelButtonText: 'ยกเลิก',
+      reverseButtons: true
+    });
+
+    if (result.isConfirmed) {
+      mutation.mutate({ id, status }, {
+        onSuccess: () => {
+          Swal.fire({
+            title: 'สำเร็จ!',
+            text: `${actionText}การจองเรียบร้อยแล้ว`,
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false
+          });
+        }
+      });
+    }
+  };
 
   const filteredBookings = bookings.filter((b) => filter === "all" ? true : b.status === filter);
 
@@ -185,13 +226,13 @@ const ManageBookings = () => {
                       {booking.status === "pending" && (
                         <>
                           <button 
-                            onClick={() => mutation.mutate({ id: booking.id, status: "approved" })}
+                            onClick={() => handleStatusChange(booking.id, "approved")}
                             className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 disabled:pointer-events-none disabled:opacity-50 bg-green-600 text-white shadow hover:bg-green-700 h-8 px-3"
                           >
                             อนุมัติ
                           </button>
                           <button 
-                            onClick={() => mutation.mutate({ id: booking.id, status: "rejected" })}
+                            onClick={() => handleStatusChange(booking.id, "rejected")}
                             className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-blue-500 disabled:pointer-events-none disabled:opacity-50 border border-gray-200 bg-white shadow-sm hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-gray-600 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-red-900/20 dark:hover:text-red-400 dark:hover:border-red-900/50 h-8 px-3"
                           >
                             ปฏิเสธ

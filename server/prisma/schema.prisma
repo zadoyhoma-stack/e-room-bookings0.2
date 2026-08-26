@@ -1,0 +1,111 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id         String   @id @default(uuid())
+  username   String?  @unique
+  password   String?
+  name       String
+  nickname   String?
+  email      String   @unique
+  role       String   @default("student")
+  department String?
+  studentId          String?
+  isVerified         Boolean  @default(false)
+  lastProfileEditDate String?
+  profileEditCount   Int?     @default(0)
+  profilePic         String?
+  bookings           Booking[]
+}
+
+model Room {
+  id          String   @id
+  name        String
+  capacity    Int
+  equipment   String[]
+  status      String   @default("available")
+  location    String
+  description String
+  image       String?
+  rules       String[]
+  bookings    Booking[]
+  problems    Problem[]
+}
+
+model Booking {
+  id           String   @id @default(uuid())
+  roomId       String
+  room         Room     @relation(fields: [roomId], references: [id])
+  date         String
+  startTime    String
+  endTime      String
+  topic        String
+  notes        String?
+  status       String   @default("pending")
+  participants Int      @default(2)
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  userName     String?
+  phone        String?
+  email        String?
+  department   String?
+  participantList String[]
+  extraEquipment  String?
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  ipAddress    String?
+}
+
+model Problem {
+  id          String   @id @default(uuid())
+  roomId      String
+  room        Room     @relation(fields: [roomId], references: [id])
+  problemType String
+  details     String
+  image       String?
+  urgency     String   @default("medium")
+  status      String   @default("pending")
+  rating      Int?     @default(0)
+  reportedAt  DateTime @default(now())
+}
+
+model Evaluation {
+  id          String   @id @default(uuid())
+  rating      Int
+  feedback    String?
+  submittedAt DateTime @default(now())
+}
+
+model OtpToken {
+  id        String   @id @default(uuid())
+  email     String
+  otp       String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model SystemLog {
+  id        String   @id @default(uuid())
+  action    String
+  user      String   @default("ระบบ")
+  type      String   @default("system") // booking, user, system, security
+  date      String
+  time      String
+  createdAt DateTime @default(now())
+}
+
+model Report {
+  id        String   @id @default(uuid())
+  date      String
+  type      String
+  room      String
+  status    String   @default("Generated")
+  format    String   @default("PDF")
+  createdAt DateTime @default(now())
+}

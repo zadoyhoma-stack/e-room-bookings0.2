@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CheckCircle, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { Problem, ProblemStatus, ProblemUrgency } from "@/data/mockData";
 
@@ -27,6 +28,7 @@ const updateProblemStatus = async ({ id, status }: { id: string; status: Problem
 const ManageProblems = () => {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<ProblemFilter>("all");
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const { data: problems = [], isLoading } = useQuery({ 
     queryKey: ["admin_problems"], 
@@ -110,10 +112,13 @@ const ManageProblems = () => {
                   
                   {problem.image && (
                     <div className="mt-3">
-                      <p className="font-medium text-xs text-gray-500 mb-1">รูปภาพประกอบ:</p>
-                      <a href={problem.image} target="_blank" rel="noreferrer" className="block w-full overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 hover:opacity-90 transition-opacity">
+                      <p className="font-medium text-xs text-gray-500 mb-1">รูปภาพประกอบ (คลิกเพื่อดูรูปใหญ่):</p>
+                      <div 
+                        onClick={() => setSelectedImage(problem.image || null)} 
+                        className="block w-full overflow-hidden rounded-md border border-gray-200 dark:border-gray-700 hover:opacity-90 transition-opacity cursor-pointer"
+                      >
                         <img src={problem.image} alt="Problem attachment" className="w-full h-32 object-cover bg-gray-100 dark:bg-gray-800" />
-                      </a>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -142,6 +147,20 @@ const ManageProblems = () => {
           ))
         )}
       </div>
+
+      {/* Image Preview Modal */}
+      <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
+        <DialogContent className="max-w-4xl p-2 bg-transparent border-0 shadow-none">
+          <DialogTitle className="sr-only">รูปภาพประกอบ</DialogTitle>
+          {selectedImage && (
+            <img 
+              src={selectedImage} 
+              alt="Preview" 
+              className="w-full h-auto max-h-[85vh] object-contain rounded-xl"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

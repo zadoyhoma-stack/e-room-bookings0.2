@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { Eye, EyeOff, LogIn, ShieldCheck, Users, GraduationCap, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { GoogleLogin } from '@react-oauth/google';
 
 import { useNavigate } from "react-router-dom";
 
@@ -14,14 +15,8 @@ interface LoginModalProps {
   onOpenChange: (open: boolean) => void;
 }
 
-const ROLE_HINTS = [
-  { label: 'Admin', user: 'admin', pass: 'admin1234', icon: ShieldCheck, color: 'text-violet-600', bg: 'bg-violet-50', hover: 'hover:bg-violet-100 hover:border-violet-300', border: 'border-violet-200' },
-  { label: 'เจ้าหน้าที่', user: 'staff01', pass: 'staff1234', icon: Users, color: 'text-blue-600', bg: 'bg-blue-50', hover: 'hover:bg-blue-100 hover:border-blue-300', border: 'border-blue-200' },
-  { label: 'นักศึกษา', user: 'student01', pass: 'std1234', icon: GraduationCap, color: 'text-emerald-600', bg: 'bg-emerald-50', hover: 'hover:bg-emerald-100 hover:border-emerald-300', border: 'border-emerald-200' },
-];
-
 export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -36,7 +31,7 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
 
     await new Promise(r => setTimeout(r, 600)); // Simulate async
 
-    const success = login(username.trim(), password);
+    const success = await login(username.trim(), password);
     setLoading(false);
 
     if (success) {
@@ -46,19 +41,61 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
       const savedUser = sessionStorage.getItem('arit_user');
       if (savedUser) {
         const user = JSON.parse(savedUser);
-        if (user.role === 'admin') {
-          navigate('/admin');
-        } else if (user.role === 'staff') {
-          navigate('/staff');
-        }
+        
+        import('sweetalert2').then((Swal) => {
+          Swal.default.fire({
+            title: 'เข้าสู่ระบบสำเร็จ',
+            text: `ยินดีต้อนรับคุณ ${user.name}`,
+            icon: 'success',
+            timer: 1500,
+            showConfirmButton: false,
+            allowOutsideClick: false
+          }).then(() => {
+            if (user.role === 'admin') {
+              navigate('/admin');
+            } else if (user.role === 'staff') {
+              navigate('/staff');
+            }
+          });
+        });
       }
     } else {
       setError('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
     }
   };
 
-  const fillHint = (user: string, pass: string) => {
-    setUsername(user); setPassword(pass); setError('');
+
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    if (credentialResponse.credential) {
+      setLoading(true);
+      setError('');
+      const { success, error: msg } = await loginWithGoogle(credentialResponse.credential);
+      setLoading(false);
+      
+      if (success) {
+        onOpenChange(false);
+        const savedUser = sessionStorage.getItem('arit_user');
+        if (savedUser) {
+          const user = JSON.parse(savedUser);
+          import('sweetalert2').then((Swal) => {
+            Swal.default.fire({
+              title: 'เข้าสู่ระบบสำเร็จ',
+              text: `ยินดีต้อนรับคุณ ${user.name}`,
+              icon: 'success',
+              timer: 1500,
+              showConfirmButton: false,
+              allowOutsideClick: false
+            }).then(() => {
+              if (user.role === 'admin') navigate('/admin');
+              else if (user.role === 'staff') navigate('/staff');
+            });
+          });
+        }
+      } else {
+        setError(msg || 'เข้าสู่ระบบด้วย Google ไม่สำเร็จ');
+      }
+    }
   };
 
   return (
@@ -86,19 +123,33 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
               <p className="text-sm sm:text-base text-slate-500 mt-2 font-medium">ARIT E-ROOMs · ม.ราชภัฎมหาสารคาม</p>
             </div>
 
-            {/* Quick-fill role hints */}
-            <div className="grid grid-cols-3 gap-3 mb-6">
-              {ROLE_HINTS.map(h => (
-                <button
-                  key={h.user}
-                  type="button"
-                  onClick={() => fillHint(h.user, h.pass)}
-                  className={cn("flex flex-col items-center gap-1.5 p-2 rounded-xl border transition-all duration-300 group shadow-sm hover:shadow-md", h.bg, h.border, h.hover)}
-                >
-                  <h.icon className={cn("h-5 w-5 transition-transform duration-300 group-hover:scale-110", h.color)} />
-                  <span className={cn("text-xs font-bold transition-colors", h.color)}>{h.label}</span>
-                </button>
-              ))}
+
+
+            {/* Google Sign In */}
+            <div className="flex flex-col items-center mb-6">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  setError('เกิดข้อผิดพลาดในการเชื่อมต่อกับ Google');
+                }}
+                useOneTap
+                theme="outline"
+                shape="pill"
+                text="signin_with"
+                size="large"
+              />
+              <p className="text-sm text-slate-600 mt-3 font-semibold bg-slate-50 px-4 py-1.5 rounded-full border border-slate-200 shadow-sm">
+                🎓 สำหรับนักศึกษา (เฉพาะอีเมล @rmu.ac.th)
+              </p>
+            </div>
+
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200"></div>
+              </div>
+              <div className="relative flex justify-center text-sm">
+                <span className="px-2 bg-white/80 text-slate-500 font-medium rounded-full">หรือเข้าสู่ระบบด้วยชื่อผู้ใช้ (สำหรับ Admin และเจ้าหน้าที่)</span>
+              </div>
             </div>
 
             {/* Form */}

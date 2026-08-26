@@ -12,6 +12,8 @@
 import { mockRooms, Room, Booking, Problem, Evaluation } from "@/data/mockData";
 import { io } from "socket.io-client";
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || "";
+
 // ==================== Storage Keys ====================
 const KEYS = {
   rooms: "arit_rooms",
@@ -61,7 +63,7 @@ function writeLocal<T>(key: string, data: T): void {
 // ==================== Socket.IO for Cross-Device Sync ====================
 let socket: ReturnType<typeof io> | null = null;
 try {
-  socket = io(); // Automatically connects to the host (proxied to backend)
+  socket = io(API_BASE_URL); // Automatically connects to the host (proxied to backend)
   
   socket.on('new_booking', (booking: Booking) => {
     const bookings = readLocal<Booking[]>(KEYS.bookings, []);
@@ -108,6 +110,15 @@ try {
   console.warn("Socket.IO client failed to initialize", e);
 }
 
+/** Helper to get Auth Headers */
+function getAuthHeaders(headers: any = {}) {
+  const token = sessionStorage.getItem('arit_token');
+  if (token) {
+    return { ...headers, Authorization: `Bearer ${token}` };
+  }
+  return headers;
+}
+
 /** Try to fetch from API, return null if failed */
 async function tryFetch<T>(url: string, options?: RequestInit): Promise<T | null> {
   try {
@@ -115,7 +126,12 @@ async function tryFetch<T>(url: string, options?: RequestInit): Promise<T | null
     const isGet = !options?.method || options.method.toUpperCase() === 'GET';
     const finalUrl = isGet ? `${url}${url.includes('?') ? '&' : '?'}t=${Date.now()}` : url;
     
-    const res = await fetch(finalUrl, options);
+    const finalOptions = {
+      ...options,
+      headers: getAuthHeaders(options?.headers)
+    };
+
+    const res = await fetch(API_BASE_URL + finalUrl, finalOptions);
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -161,7 +177,7 @@ export async function getRooms(): Promise<Room[]> {
       const localData = readLocal<Room[]>(KEYS.rooms, mockRooms);
       await tryFetch("/api/rooms/seed", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(localData)
       });
       writeLocal(KEYS.rooms, localData);
@@ -212,71 +228,45 @@ export async function getUsers(): Promise<any[]> {
 // ==================== BOOKING Mutations ====================
 
 export async function createBooking(bookingData: Omit<Booking, "id" | "status">): Promise<Booking> {
-  // Try API first
-  const apiResult = await tryFetch<Booking>("/api/bookings", {
+  // Always use API — Database is Source of Truth (ข้อ 22)
+  const res = await fetch(API_BASE_URL + "/api/bookings", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(bookingData),
   });
-  if (apiResult) {
-    // Sync to local
+
+  if (res.ok) {
+    const apiResult = await res.json();
     const bookings = readLocal<Booking[]>(KEYS.bookings, []);
     if (!bookings.some(b => b.id === apiResult.id)) {
       bookings.unshift(apiResult);
       writeLocal(KEYS.bookings, bookings);
     }
     return apiResult;
+  } else {
+    const err = await res.json();
+    throw new Error(err.error || "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์");
   }
-
-  // Fallback: create locally
-  const newBooking: Booking = {
-    ...bookingData as any,
-    id: `b${Date.now()}`,
-    status: "pending",
-  };
-  const bookings = readLocal<Booking[]>(KEYS.bookings, []);
-
-  // Check for time overlap
-  const overlap = bookings.find(b =>
-    b.roomId === newBooking.roomId &&
-    b.date === newBooking.date &&
-    (b.status === "pending" || b.status === "approved") &&
-    (
-      (newBooking.startTime >= b.startTime && newBooking.startTime < b.endTime) ||
-      (newBooking.endTime > b.startTime && newBooking.endTime <= b.endTime) ||
-      (newBooking.startTime <= b.startTime && newBooking.endTime >= b.endTime)
-    )
-  );
-  if (overlap) {
-    throw new Error("ห้องนี้มีการจองในช่วงเวลาดังกล่าวแล้ว");
-  }
-
-  bookings.unshift(newBooking);
-  writeLocal(KEYS.bookings, bookings);
-  return newBooking;
 }
 
 export async function updateBookingStatus(id: string, status: string): Promise<Booking> {
-  // Try API
-  const apiResult = await tryFetch<Booking>(`/api/bookings/${id}`, {
+  // Always use API — Database is Source of Truth
+  const res = await fetch(API_BASE_URL + `/api/bookings/${id}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ status }),
   });
-  if (apiResult) {
+
+  if (res.ok) {
+    const apiResult = await res.json();
     const bookings = readLocal<Booking[]>(KEYS.bookings, []);
     const updated = bookings.map(b => b.id === id ? { ...b, status: status as any } : b);
     writeLocal(KEYS.bookings, updated);
     return apiResult;
+  } else {
+    const err = await res.json();
+    throw new Error(err.error || "เกิดข้อผิดพลาดในการเปลี่ยนสถานะ");
   }
-
-  // Fallback
-  const bookings = readLocal<Booking[]>(KEYS.bookings, []);
-  const idx = bookings.findIndex(b => b.id === id);
-  if (idx === -1) throw new Error("Booking not found");
-  bookings[idx] = { ...bookings[idx], status: status as any };
-  writeLocal(KEYS.bookings, bookings);
-  return bookings[idx];
 }
 
 // ==================== ROOM Mutations ====================
@@ -322,6 +312,28 @@ export async function updateRoom(id: string, updates: Partial<Room>): Promise<Ro
   rooms[idx] = { ...rooms[idx], ...updates };
   writeLocal(KEYS.rooms, rooms);
   return rooms[idx];
+}
+
+export async function createRoom(roomData: Omit<Room, "id">): Promise<Room> {
+  const apiResult = await tryFetch<Room>("/api/rooms", {
+    method: "POST",
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(roomData),
+  });
+
+  if (apiResult) {
+    const rooms = readLocal<Room[]>(KEYS.rooms, mockRooms);
+    writeLocal(KEYS.rooms, [apiResult, ...rooms]);
+    return apiResult;
+  }
+
+  const rooms = readLocal<Room[]>(KEYS.rooms, mockRooms);
+  const newRoom: Room = {
+    ...roomData,
+    id: `r${Date.now()}`
+  } as Room;
+  writeLocal(KEYS.rooms, [newRoom, ...rooms]);
+  return newRoom;
 }
 
 // ==================== PROBLEM Mutations ====================
@@ -422,7 +434,10 @@ export async function updateUserData(id: string, updates: any): Promise<any> {
 }
 
 export async function deleteUser(id: string): Promise<void> {
-  await tryFetch(`/api/users/${id}`, { method: "DELETE" });
+  await tryFetch(`/api/users/${id}`, {
+    method: "DELETE",
+    headers: getAuthHeaders()
+  });
   const users = readLocal<any[]>(KEYS.users, []);
   const filtered = users.filter(u => u.id !== id);
   writeLocal(KEYS.users, filtered);
@@ -461,6 +476,29 @@ export function onDataChange(callback: (key: string, data: any) => void): () => 
     window.removeEventListener("storage", handleStorage);
     channel?.removeEventListener("message", handleBroadcast);
   };
+}
+
+// ==================== LOGS & REPORTS Operations ====================
+
+export async function getSystemLogs(): Promise<any[]> {
+  const apiData = await tryFetch<any[]>("/api/logs");
+  if (apiData) return apiData;
+  return []; // No fallback for logs
+}
+
+export async function getReports(): Promise<any[]> {
+  const apiData = await tryFetch<any[]>("/api/reports");
+  if (apiData) return apiData;
+  return [];
+}
+
+export async function createReport(data: { type: string, room: string, format: string }): Promise<any> {
+  const apiResult = await tryFetch<any>("/api/reports", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  return apiResult;
 }
 
 // Storage key exports for direct access if needed

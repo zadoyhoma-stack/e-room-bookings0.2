@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Room, TIME_OPTIONS, PARTICIPANT_OPTIONS } from "@/data/mockData";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CalendarIcon, Users, MapPin, CheckCircle2, Clock, CalendarDays, Phone, AlignLeft, Send, Mail, User, Building, Laptop, Plus, X } from "lucide-react";
+import { CalendarIcon, Users, MapPin, CheckCircle2, Clock, CalendarDays, Phone, AlignLeft, Send, Mail, User, Building, Laptop, Plus, X, Ban } from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,8 @@ interface BookingConfirmModalProps {
     participantList: string[],
     extraEquipment: string
   ) => void;
+  bookings?: any[];
+  currentUser?: any;
 }
 
 const DEPARTMENTS = [
@@ -58,9 +60,19 @@ const DEPARTMENTS = [
 
 const ACTIVITY_TOPICS = ['การประชุมภายใน', 'การเรียนการสอน', 'การติวหนังสือ/ทำงานกลุ่ม', 'การจัดกิจกรรมชมรม/คณะ', 'อื่นๆ'];
 const EXTRA_EQUIPMENT_OPTIONS = ['ไมโครโฟนเสริม', 'สายเชื่อมต่อ (HDMI/VGA)', 'ปลั๊กพ่วง', 'กระดานฟลิปชาร์ท'];
+const START_TIME_OPTIONS = [
+  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30', 
+  '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', 
+  '14:00', '14:30', '15:00'
+];
+const END_TIME_OPTIONS = [
+  '08:30', '09:00', '09:30', '10:00', '10:30', 
+  '11:00', '11:30', '12:00', '12:30', '13:00', '13:30', 
+  '14:00', '14:30', '15:00', '15:30'
+];
 
 export const BookingConfirmModal = ({
-  open, onOpenChange, room, rawDate, date, startTime, endTime, participants, onConfirm
+  open, onOpenChange, room, rawDate, date, startTime, endTime, participants, onConfirm, bookings = [], currentUser
 }: BookingConfirmModalProps) => {
   const [topic, setTopic] = useState('');
   const [bookerName, setBookerName] = useState('');
@@ -88,15 +100,50 @@ export const BookingConfirmModal = ({
       setEditParticipants(cappedParticipants);
       
       setTopic('');
-      setBookerName('');
-      setEmail('');
-      setPhone('');
-      setDepartment('');
+      setBookerName(currentUser?.name || '');
+      setEmail(currentUser?.email || '');
+      setPhone(currentUser?.phone || '');
+      setDepartment(currentUser?.department || '');
       setExtraEquipment('');
       setParticipantList([]);
       setParticipantInput('');
     }
-  }, [open, rawDate, startTime, endTime, participants, room]);
+  }, [open, rawDate, startTime, endTime, participants, room, currentUser]);
+
+  const isOverlap = useMemo(() => {
+    if (!room || !bookings || bookings.length === 0) return false;
+    const submitDate = format(editDate, 'yyyy-MM-dd');
+    
+    const timeToMins = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return h * 60 + m;
+    };
+    
+    return bookings.some(b => {
+      if (b.roomId !== room.id) return false;
+      if (b.date !== submitDate) return false;
+      if (b.status === 'rejected' || b.status === 'cancelled') return false;
+      
+      const now = new Date();
+      if (submitDate === format(now, 'yyyy-MM-dd')) {
+        const currentMins = now.getHours() * 60 + now.getMinutes();
+        const endMins = timeToMins(b.endTime);
+        if (currentMins >= endMins) return false;
+      }
+      
+      const sStart = timeToMins(editStartTime);
+      const sEnd = timeToMins(editEndTime);
+      const bStart = timeToMins(b.startTime);
+      const bEnd = timeToMins(b.endTime);
+      
+      return (
+        (sStart >= bStart && sStart < bEnd) ||
+        (sEnd > bStart && sEnd <= bEnd) ||
+        (sStart <= bStart && sEnd >= bEnd) ||
+        (bStart >= sStart && bStart < sEnd)
+      );
+    });
+  }, [room, bookings, editDate, editStartTime, editEndTime, open]);
 
   if (!room) return null;
 
@@ -185,7 +232,7 @@ export const BookingConfirmModal = ({
                 <Select value={editStartTime} onValueChange={setEditStartTime}>
                   <SelectTrigger className="rounded-xl border-slate-200 h-11 hover:bg-slate-50 font-medium"><SelectValue placeholder="-- เลือกเวลาเริ่ม --" /></SelectTrigger>
                   <SelectContent className="rounded-xl border-slate-100 shadow-xl max-h-60">
-                    {TIME_OPTIONS.map(t => <SelectItem key={t} value={t} className="cursor-pointer">{t}</SelectItem>)}
+                    {START_TIME_OPTIONS.map(t => <SelectItem key={t} value={t} className="cursor-pointer">{t}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -197,11 +244,24 @@ export const BookingConfirmModal = ({
                 <Select value={editEndTime} onValueChange={setEditEndTime}>
                   <SelectTrigger className="rounded-xl border-slate-200 h-11 hover:bg-slate-50 font-medium"><SelectValue placeholder="-- เลือกเวลาสิ้นสุด --" /></SelectTrigger>
                   <SelectContent className="rounded-xl border-slate-100 shadow-xl max-h-60">
-                    {TIME_OPTIONS.map(t => <SelectItem key={t} value={t} className="cursor-pointer">{t}</SelectItem>)}
+                    {END_TIME_OPTIONS.map(t => <SelectItem key={t} value={t} className="cursor-pointer">{t}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
             </div>
+
+            {isOverlap && (
+              <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+                <Ban className="w-4 h-4 shrink-0" />
+                ไม่สามารถเลือกเวลานี้ได้ เนื่องจากมีการจองในระบบแล้ว
+              </div>
+            )}
+            {editStartTime >= editEndTime && (
+              <div className="bg-amber-50 border border-amber-200 text-amber-600 px-4 py-3 rounded-xl text-sm font-bold flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+                <Clock className="w-4 h-4 shrink-0" />
+                เวลาเริ่มต้นต้องน้อยกว่าเวลาสิ้นสุด
+              </div>
+            )}
 
             {/* Booker Information */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
@@ -218,14 +278,14 @@ export const BookingConfirmModal = ({
               </div>
               <div className="space-y-1.5">
                 <Label className="text-slate-700 text-xs font-bold flex items-center gap-1.5">
-                  <User className="w-3.5 h-3.5 text-slate-400" /> ชื่อผู้จอง <span className="text-red-500">*</span>
+                  <User className="w-3.5 h-3.5 text-slate-400" /> ชื่อผู้จอง
                 </Label>
                 <Input value={bookerName} onChange={e => setBookerName(e.target.value)} placeholder="ชื่อ-นามสกุล" className="rounded-xl border-slate-200 h-11 focus-visible:ring-blue-500" />
               </div>
               
               <div className="space-y-1.5">
                 <Label className="text-slate-700 text-xs font-bold flex items-center gap-1.5">
-                  <Mail className="w-3.5 h-3.5 text-slate-400" /> อีเมล <span className="text-red-500">*(เฉพาะ @rmu.ac.th)</span>
+                  <Mail className="w-3.5 h-3.5 text-slate-400" /> อีเมล
                 </Label>
                 <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="username@rmu.ac.th" type="email" className="rounded-xl border-slate-200 h-11 focus-visible:ring-blue-500" />
               </div>
@@ -318,7 +378,16 @@ export const BookingConfirmModal = ({
 
           <DialogFooter className="mt-8 gap-3 sm:gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)} className="rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100 h-12 px-6">ยกเลิก</Button>
-            <Button onClick={handleConfirm} className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg shadow-blue-500/25 h-12 px-8 flex items-center gap-2">
+            <Button 
+              onClick={handleConfirm} 
+              disabled={isOverlap || editStartTime >= editEndTime || !topic || !phone || !department}
+              className={cn(
+                "w-full sm:w-auto px-8 py-2.5 rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2",
+                (isOverlap || editStartTime >= editEndTime || !topic || !phone || !department)
+                  ? "bg-slate-300 hover:bg-slate-300 text-slate-500 cursor-not-allowed shadow-none"
+                  : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/25 h-12"
+              )}
+            >
               <Send className="w-4 h-4" />
               จอง
             </Button>

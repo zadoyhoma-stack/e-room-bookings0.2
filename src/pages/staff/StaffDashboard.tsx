@@ -106,16 +106,12 @@ const StaffDashboard = () => {
       {/* ── Header Section with Dark Blue to Dark Gray Gradient and Floating Orbs ── */}
       <div className="relative flex flex-col-reverse md:flex-row md:items-center justify-between gap-6 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-8 md:p-10 rounded-[32px] shadow-2xl shadow-blue-900/30 border border-blue-500/20 overflow-hidden text-white transition-all duration-300 group">
         
-        {/* Soft Decorative Ambient Orbs */}
-        <div className="absolute -right-20 -top-20 w-96 h-96 bg-blue-500/20 rounded-full blur-[80px] pointer-events-none mix-blend-screen animate-pulse-slow group-hover:bg-blue-500/30 transition-colors duration-700" />
-        <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-sky-500/10 rounded-full blur-[80px] pointer-events-none mix-blend-screen group-hover:bg-sky-500/20 transition-colors duration-700" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-white/5 to-transparent pointer-events-none mix-blend-overlay" />
+        {/* Header content without heavy blurs */}
         
         <div className="relative z-10 flex-1">
           {/* Real-time date badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 text-sky-300 font-bold text-xs tracking-wide mb-5 backdrop-blur-md border border-slate-700/50 shadow-inner">
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-400"></span>
             </span>
             {format(new Date(), "EEEE d MMMM yyyy", { locale: th })}
@@ -124,7 +120,7 @@ const StaffDashboard = () => {
           <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-tight mb-3">
             <span className="block text-white drop-shadow-md">ภาพรวมการควบคุม</span>
             <span className="text-white/90 flex items-center gap-3 text-2xl md:text-3xl font-bold mt-2 drop-shadow-sm">
-              ระบบจองห้องประชุม ARIT E-ROOMs <Sparkles className="h-6 w-6 text-yellow-300 animate-pulse" />
+              ระบบจองห้องประชุม ARIT E-ROOMs
             </span>
           </h1>
 
@@ -283,7 +279,7 @@ const StaffDashboard = () => {
           {/* Quick usage insights bar */}
           <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between flex-wrap gap-4">
             <div className="flex items-center gap-3">
-              <div className="h-3 w-3 rounded-full bg-blue-600 animate-ping"></div>
+              <div className="h-3 w-3 rounded-full bg-blue-600"></div>
               <span className="text-xs font-bold text-slate-600">อัตราการจองเฉลี่ยรายวันอยู่ในเกณฑ์ปกติ</span>
             </div>
             <div className="flex gap-4">

@@ -55,10 +55,46 @@ const playNotificationSound = () => {
   }
 };
 
+const timeToMinutes = (timeStr: string) => {
+  const [h, m] = (timeStr || "00:00").split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+
+/**
+ * Unified Time Overlap Check — ใช้ Logic เดียวกันทั้งระบบ (ข้อ 15, 25)
+ * new_start < existing_end AND new_end > existing_start
+ */
+const checkTimeOverlap = (
+  bookings: Booking[],
+  roomId: string,
+  date: string,
+  startTime: string,
+  endTime: string,
+  excludeBookingId?: string
+): Booking | undefined => {
+  return bookings.find(b => {
+    if (b.roomId !== roomId) return false;
+    if (b.date !== date) return false;
+    if (b.status === 'rejected' || b.status === 'cancelled') return false;
+    if (excludeBookingId && b.id === excludeBookingId) return false;
+
+    const sStart = timeToMinutes(startTime);
+    const sEnd = timeToMinutes(endTime);
+    const bStart = timeToMinutes(b.startTime);
+    const bEnd = timeToMinutes(b.endTime);
+
+    // กฎเวลาทับซ้อน: new_start < existing_end AND new_end > existing_start
+    return sStart < bEnd && sEnd > bStart;
+  });
+};
+
 const Index = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { canApprove, currentUser } = useAuth();
+
+  // Double Submit Protection (ข้อ 20)
+  const isSubmittingRef = useRef(false);
 
   // Handle staff/admin redirect on mount
   useEffect(() => {
@@ -106,8 +142,7 @@ const Index = () => {
       bookings.forEach(b => {
         if (b.status !== 'approved' || b.date !== todayStr) return;
 
-        const [endH, endM] = b.endTime.split(':').map(Number);
-        const endTotalMinutes = endH * 60 + endM;
+        const endTotalMinutes = timeToMinutes(b.endTime);
         const minutesRemaining = endTotalMinutes - currentTotalMinutes;
 
         // เตือนก่อนหมดเวลา 2 นาที
@@ -120,8 +155,11 @@ const Index = () => {
           });
         }
 
-        // แจ้งเตือนหมดเวลาแล้ว
-        if (currentTimeStr >= b.endTime && !notifiedEndRef.current.has(b.id)) {
+        const isPastEnd = currentTotalMinutes >= endTotalMinutes;
+        const minutesSinceEnd = currentTotalMinutes - endTotalMinutes;
+
+        // แจ้งเตือนหมดเวลาแล้ว (แจ้งเตือนเฉพาะช่วง 5 นาทีหลังจากหมดเวลา เพื่อป้องกันแจ้งซ้ำรัวๆ ตอน refresh)
+        if (isPastEnd && minutesSinceEnd <= 5 && !notifiedEndRef.current.has(b.id)) {
           notifiedEndRef.current.add(b.id);
           playNotificationSound();
           toast({
@@ -134,7 +172,7 @@ const Index = () => {
     };
 
     checkBookingTimes(); // เรียกทันที
-    const interval = setInterval(checkBookingTimes, 30000); // ทุก 30 วินาที (แทน 10 วินาที x 2)
+    const interval = setInterval(checkBookingTimes, 60000); // ทุก 60 วินาที
     return () => clearInterval(interval);
   }, [bookings, currentUser, toast]);
 
@@ -192,13 +230,19 @@ const Index = () => {
       setLoginOpen(true);
       return;
     }
+
+    // Room maintenance check (ข้อ 10)
+    if (room.status === 'maintenance') {
+      toast({ title: "ห้องปิดปรับปรุง", description: `${room.name} ไม่สามารถจองได้ในขณะนี้`, variant: "destructive" });
+      return;
+    }
     
-    // Parse time + 1 hour as default end time (capped at 16:30)
-    const [h, m] = time.split(':').map(Number);
+    // Parse time + 1 hour as default end time (capped at 15:30)
+    const [h, m] = (time || "00:00").split(':').map(Number);
     let endH = h + 1;
     let endM = m;
-    if (endH > 16 || (endH === 16 && endM > 30)) {
-      endH = 16;
+    if (endH > 15 || (endH === 15 && endM > 30)) {
+      endH = 15;
       endM = 30;
     }
     const endTime = `${endH.toString().padStart(2, '0')}:${endM.toString().padStart(2, '0')}`;
@@ -220,31 +264,18 @@ const Index = () => {
     const searchDate = format(filters.date || new Date(), 'yyyy-MM-dd');
     
     const results = rooms.map(room => {
-      const isOccupied = bookings.some(b => {
-        if (b.roomId !== room.id) return false;
-        if (b.date !== searchDate) return false;
-        if (b.status === 'rejected' || b.status === 'cancelled') return false;
-        
-        // Check if this booking is already expired in real life
-        const now = new Date();
-        const currentTotalMinutes = now.getHours() * 60 + now.getMinutes();
-        const [endH, endM] = b.endTime.split(':').map(Number);
-        const endTotalMinutes = endH * 60 + endM;
-        if (b.date === format(now, 'yyyy-MM-dd') && currentTotalMinutes >= endTotalMinutes) return false;
-        
-        // Check time overlap
-        const sStart = filters.startTime;
-        const sEnd = filters.endTime;
-        return (
-          (sStart >= b.startTime && sStart < b.endTime) ||
-          (sEnd > b.startTime && sEnd <= b.endTime) ||
-          (sStart <= b.startTime && sEnd >= b.endTime)
-        );
-      });
+      const overlappingBooking = checkTimeOverlap(
+        bookings,
+        room.id,
+        searchDate,
+        filters.startTime,
+        filters.endTime
+      );
       
       return {
         ...room,
-        status: isOccupied ? 'occupied' : (room.status === 'occupied' ? 'available' : room.status) as Room['status']
+        status: overlappingBooking ? 'occupied' : (room.status === 'occupied' ? 'available' : room.status) as Room['status'],
+        occupiedText: overlappingBooking ? `ติดจอง (ถึง ${overlappingBooking.endTime} น.)` : undefined
       };
     }).filter(room => {
       if (room.capacity < filters.participants) return false;
@@ -272,6 +303,11 @@ const Index = () => {
       setLoginOpen(true);
       return;
     }
+    // Room maintenance check (ข้อ 10)
+    if (room.status === 'maintenance') {
+      toast({ title: "ห้องปิดปรับปรุง", description: `${room.name} ไม่สามารถจองได้ในขณะนี้`, variant: "destructive" });
+      return;
+    }
     setBookingRoom(room);
   }, [currentUser, toast]);
 
@@ -291,6 +327,33 @@ const Index = () => {
     extraEquipment: string
   ) => {
     if (!bookingRoom) return;
+    
+    if (newStartTime >= newEndTime) {
+      toast({ title: "เวลาจองไม่ถูกต้อง", description: "เวลาเริ่มต้องน้อยกว่าเวลาสิ้นสุด", variant: "destructive" });
+      return;
+    }
+    
+    // Validate overlap using unified function (ข้อ 5, 15, 25)
+    const submitDate = format(newDate, 'yyyy-MM-dd');
+    const overlapBooking = checkTimeOverlap(
+      bookings,
+      bookingRoom.id,
+      submitDate,
+      newStartTime,
+      newEndTime
+    );
+
+    if (overlapBooking) {
+      toast({ title: "ห้องไม่ว่าง", description: "มีการจองในช่วงเวลานี้แล้ว ไม่สามารถจองซ้ำได้ กรุณาเลือกเวลาอื่น", variant: "destructive" });
+      return;
+    }
+
+    // Double Submit Protection (ข้อ 20)
+    if (isSubmittingRef.current) {
+      toast({ title: "กำลังดำเนินการ...", description: "กรุณารอสักครู่" });
+      return;
+    }
+    isSubmittingRef.current = true;
     
     const bookingData = {
       roomId: bookingRoom.id,
@@ -312,75 +375,139 @@ const Index = () => {
         : (currentUser?.nickname ? `${currentUser.nickname} (${currentUser.name})` : currentUser?.name || 'ผู้ใช้ทั่วไป')),
     };
 
-    ds.createBooking(bookingData)
-      .then(newBooking => {
-        setBookings(prev => {
-          if (prev.some(b => b.id === newBooking.id)) return prev;
-          return [newBooking, ...prev];
-        });
-        setBookingRoom(null);
-        toast({ title: "ส่งคำขอสำเร็จ", description: `${bookingRoom.name} — รออนุมัติ` });
-        setTimeout(() => document.getElementById('my-bookings')?.scrollIntoView({ behavior: 'smooth' }), 300);
-        
-        // หน่วงเวลา 2 วินาที แล้วแสดงหน้าต่างประเมิน
-        setTimeout(() => {
-          setEvaluationOpen(true);
-          toast({
-            title: "ช่วยประเมินระบบให้เราหน่อยนะ! ⭐",
-            description: "ใช้เวลาแค่แป๊บเดียว เพื่อการปรับปรุงระบบให้ดียิ่งขึ้น",
-          });
-        }, 2000);
-      })
-      .catch(err => {
-        console.error("Booking error:", err);
-        toast({ title: "เกิดข้อผิดพลาด", description: err.message, variant: "destructive" });
+    import('sweetalert2').then((Swal) => {
+      Swal.default.fire({
+        title: 'กำลังส่งคำขอจอง...',
+        text: 'กรุณารอสักครู่',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.default.showLoading();
+        }
       });
+
+      ds.createBooking(bookingData)
+        .then(newBooking => {
+          setBookings(prev => {
+            if (prev.some(b => b.id === newBooking.id)) return prev;
+            return [newBooking, ...prev];
+          });
+          setBookingRoom(null);
+          
+          Swal.default.fire({
+            title: 'ส่งคำขอสำเร็จ!',
+            text: `${bookingRoom.name} — รออนุมัติ`,
+            icon: 'success',
+            timer: 2000,
+            showConfirmButton: false
+          }).then(() => {
+            setTimeout(() => document.getElementById('my-bookings')?.scrollIntoView({ behavior: 'smooth' }), 300);
+            
+            setTimeout(() => {
+              setEvaluationOpen(true);
+              toast({
+                title: "ช่วยประเมินระบบให้เราหน่อยนะ! ⭐",
+                description: "ใช้เวลาแค่แป๊บเดียว เพื่อการปรับปรุงระบบให้ดียิ่งขึ้น",
+              });
+            }, 2000);
+          });
+        })
+        .catch(err => {
+          console.error("Booking error:", err);
+          Swal.default.fire({
+            title: 'เกิดข้อผิดพลาด',
+            text: err.message,
+            icon: 'error'
+          });
+        })
+        .finally(() => {
+          isSubmittingRef.current = false;  // Reset Double Submit lock
+        });
+    });
   }, [bookingRoom, currentUser, toast]);
 
   // Cancel booking
   const handleCancelConfirm = useCallback(() => {
     if (!cancelBooking) return;
     
-    ds.updateBookingStatus(cancelBooking.id, "cancelled")
-      .then(updatedBooking => {
-        setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b));
-        setCancelBooking(null);
-        toast({ title: "ยกเลิกการจองแล้ว" });
-      })
-      .catch(err => {
-        console.error("Cancel error:", err);
-        toast({ title: "เกิดข้อผิดพลาด", description: "ไม่สามารถยกเลิกการจองได้", variant: "destructive" });
+    import('sweetalert2').then((Swal) => {
+      Swal.default.fire({
+        title: 'กำลังยกเลิกการจอง...',
+        allowOutsideClick: false,
+        didOpen: () => Swal.default.showLoading()
       });
-  }, [cancelBooking, toast]);
+
+      ds.updateBookingStatus(cancelBooking.id, "cancelled")
+        .then(updatedBooking => {
+          setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b));
+          setCancelBooking(null);
+          Swal.default.fire({ title: 'ยกเลิกสำเร็จ', icon: 'success', timer: 1500, showConfirmButton: false });
+        })
+        .catch(err => {
+          console.error("Cancel error:", err);
+          Swal.default.fire({ title: 'เกิดข้อผิดพลาด', text: 'ไม่สามารถยกเลิกการจองได้', icon: 'error' });
+        });
+    });
+  }, [cancelBooking]);
 
   // Admin actions
   const handleAdminApprove = useCallback((id: string) => {
-    ds.updateBookingStatus(id, "approved")
-      .then(updatedBooking => {
-        setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b));
-        toast({ title: "อนุมัติคำขอแล้ว" });
-      })
-      .catch(() => toast({ title: "เกิดข้อผิดพลาด", variant: "destructive" }));
-  }, [toast]);
+    import('sweetalert2').then(async (Swal) => {
+      const result = await Swal.default.fire({
+        title: 'ยืนยันการอนุมัติ?',
+        text: 'คุณแน่ใจหรือไม่ที่จะอนุมัติคำขอจองห้องนี้?',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#16a34a',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonText: 'ใช่, อนุมัติเลย'
+      });
+      if (result.isConfirmed) {
+        ds.updateBookingStatus(id, "approved")
+          .then(updatedBooking => {
+            setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b));
+            Swal.default.fire({ title: 'อนุมัติคำขอแล้ว', icon: 'success', timer: 1500, showConfirmButton: false });
+          })
+          .catch((err) => Swal.default.fire({ title: 'เกิดข้อผิดพลาด', text: err.message, icon: 'error' }));
+      }
+    });
+  }, []);
 
   const handleAdminReject = useCallback((id: string) => {
-    ds.updateBookingStatus(id, "rejected")
-      .then(updatedBooking => {
-        setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b));
-        toast({ title: "ปฏิเสธคำขอแล้ว" });
-      })
-      .catch(() => toast({ title: "เกิดข้อผิดพลาด", variant: "destructive" }));
-  }, [toast]);
+    import('sweetalert2').then(async (Swal) => {
+      const result = await Swal.default.fire({
+        title: 'ยืนยันการปฏิเสธ?',
+        text: 'คุณแน่ใจหรือไม่ที่จะปฏิเสธคำขอจองห้องนี้?',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#d33',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonText: 'ใช่, ปฏิเสธเลย'
+      });
+      if (result.isConfirmed) {
+        ds.updateBookingStatus(id, "rejected")
+          .then(updatedBooking => {
+            setBookings(prev => prev.map(b => b.id === updatedBooking.id ? updatedBooking : b));
+            Swal.default.fire({ title: 'ปฏิเสธคำขอแล้ว', icon: 'success', timer: 1500, showConfirmButton: false });
+          })
+          .catch((err) => Swal.default.fire({ title: 'เกิดข้อผิดพลาด', text: err.message, icon: 'error' }));
+      }
+    });
+  }, []);
 
   return (
     <DashboardLayout>
       {/* Hero Section */}
-      <div className="relative -mt-20 pt-6 pb-10 sm:pb-16 mb-2 sm:mb-4 overflow-hidden shadow-2xl min-h-[auto] md:min-h-[40vh] lg:min-h-[45vh] flex flex-col rounded-b-[30px] sm:rounded-b-[40px] w-full border border-slate-200 dark:border-white/10">
-        <div 
-          className="absolute inset-0 z-0 bg-cover bg-center contrast-[1.15] saturate-[1.3] brightness-[1.05]"
-          style={{ backgroundImage: "url('/bg-building.jpg')" }}
-        />
-        <div className="absolute inset-0 z-0 bg-gradient-to-br from-slate-950/95 via-blue-950/95 to-slate-900/90" />
+      <div className="relative -mt-20 pt-6 pb-6 mb-4 shadow-md flex flex-col w-full z-10 rounded-b-[20px] sm:rounded-b-[30px]">
+        {/* Background Image Layer (with overflow-hidden to clip the background but not dropdowns) */}
+        <div className="absolute inset-0 z-0 overflow-hidden rounded-b-[20px] sm:rounded-b-[30px]">
+          <div 
+            className="absolute inset-0 bg-cover bg-center transition-transform duration-1000 hover:scale-105"
+            style={{ backgroundImage: "url('/bg-building.jpg')" }}
+          />
+          {/* Subtle overlay to keep white text readable but show image clearly */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#1877f2]/70 via-[#1877f2]/10 to-transparent dark:from-[#18191a]/90 dark:to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-black/30" />
+        </div>
         
         <div className="relative z-10 flex flex-col flex-1 h-full">
           <DashboardHeader 
@@ -453,6 +580,8 @@ const Index = () => {
         startTime={currentFilters.startTime}
         endTime={currentFilters.endTime}
         participants={currentFilters.participants}
+        bookings={bookings}
+        currentUser={currentUser}
         onConfirm={handleBookingConfirm}
       />
       <CancelConfirmModal
