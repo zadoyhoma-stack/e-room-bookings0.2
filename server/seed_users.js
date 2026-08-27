@@ -36,7 +36,22 @@ async function main() {
     }
   });
 
-  console.log('Seeded admin and staff with password admin123456');
+  // Student
+  await prisma.user.upsert({
+    where: { email: 'student01@rmu.ac.th' },
+    update: { password, role: 'student', username: 'student01' },
+    create: {
+      email: 'student01@rmu.ac.th',
+      username: 'student01',
+      password,
+      name: 'สมชาย เรียนดี',
+      nickname: 'ชาย',
+      role: 'student',
+      department: 'คณะเทคโนโลยีสารสนเทศ'
+    }
+  });
+
+  console.log('Seeded admin, staff, and student with password admin123456');
 }
 
 main().catch(console.error).finally(() => prisma.$disconnect());

@@ -138,7 +138,7 @@ async function logSystemEvent(action, user, type, extra) {
   }
 }
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '890020262003-0ba7080apdo8slk5h2jk1e80p13do2sc.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '35729452434-m604kfc18hvmkd2qhi3d3pjj8dfhidr5.apps.googleusercontent.com';
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 app.post('/api/auth/google', async (req, res) => {

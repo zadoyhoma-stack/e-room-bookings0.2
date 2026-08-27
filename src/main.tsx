@@ -11,7 +11,7 @@ initializeData();
 import { ThemeProvider } from "./contexts/ThemeProvider.tsx";
 
 createRoot(document.getElementById("root")!).render(
-  <GoogleOAuthProvider clientId="890020262003-0ba7080apdo8slk5h2jk1e80p13do2sc.apps.googleusercontent.com">
+  <GoogleOAuthProvider clientId="35729452434-m604kfc18hvmkd2qhi3d3pjj8dfhidr5.apps.googleusercontent.com">
     <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <AuthProvider>
         <App />
