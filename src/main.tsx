@@ -10,8 +10,10 @@ initializeData();
 
 import { ThemeProvider } from "./contexts/ThemeProvider.tsx";
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
 createRoot(document.getElementById("root")!).render(
-  <GoogleOAuthProvider clientId="35729452434-m604kfc18hvmkd2qhi3d3pjj8dfhidr5.apps.googleusercontent.com">
+  <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
     <ThemeProvider defaultTheme="light" storageKey="vite-ui-theme">
       <AuthProvider>
         <App />

@@ -138,7 +138,8 @@ async function logSystemEvent(action, user, type, extra) {
   }
 }
 
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '35729452434-m604kfc18hvmkd2qhi3d3pjj8dfhidr5.apps.googleusercontent.com';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
+if (!GOOGLE_CLIENT_ID) console.warn('WARNING: GOOGLE_CLIENT_ID is not set in environment variables');
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 app.post('/api/auth/google', async (req, res) => {
@@ -167,13 +168,19 @@ app.post('/api/auth/google', async (req, res) => {
     }
 
     // Check if user exists, or create a new student
-    let user = await prisma.user.findUnique({
-      where: { email }
+    let user = await prisma.user.findFirst({
+      where: { 
+        OR: [
+          { googleId: payload.sub },
+          { email: email }
+        ]
+      }
     });
 
     if (!user) {
       user = await prisma.user.create({
         data: {
+          googleId: payload.sub,
           email,
           name: name || 'นักศึกษา',
           role: 'student',
@@ -181,12 +188,18 @@ app.post('/api/auth/google', async (req, res) => {
           profilePic: picture,
         }
       });
-    } else if (picture && user.profilePic !== picture) {
-      // Update profile pic if they already exist but picture changed
-      user = await prisma.user.update({
-        where: { email },
-        data: { profilePic: picture }
-      });
+    } else {
+      // Update profile pic and googleId if they already exist
+      const updateData = {};
+      if (picture && user.profilePic !== picture) updateData.profilePic = picture;
+      if (!user.googleId) updateData.googleId = payload.sub;
+
+      if (Object.keys(updateData).length > 0) {
+        user = await prisma.user.update({
+          where: { id: user.id },
+          data: updateData
+        });
+      }
     }
 
     // Create system JWT
@@ -218,8 +231,13 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Missing username or password' });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { username }
+    const user = await prisma.user.findFirst({
+      where: { 
+        OR: [
+          { username: username },
+          { email: username }
+        ]
+      }
     });
 
     if (!user || !user.password) {
