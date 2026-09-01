@@ -325,11 +325,29 @@ app.get('/api/bookings', async (req, res) => {
         room: { select: { name: true } }
       }
     });
-    // Map data slightly to match old format which expected roomName at root level
-    const mapped = bookings.map(b => ({
-      ...b,
-      roomName: b.room.name
-    }));
+    
+    // Auth Check: if not admin/staff, strip sensitive info (phone, email)
+    let isAdminOrStaff = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded.role === 'admin' || decoded.role === 'staff') {
+          isAdminOrStaff = true;
+        }
+      } catch (e) {}
+    }
+
+    const mapped = bookings.map(b => {
+      const data = { ...b, roomName: b.room.name };
+      if (!isAdminOrStaff) {
+        delete data.phone;
+        delete data.email;
+        delete data.ipAddress;
+      }
+      return data;
+    });
     res.json(mapped);
   } catch (err) {
     res.status(500).json({ error: 'Database error' });
@@ -631,12 +649,17 @@ app.get('/api/evaluations', async (req, res) => {
 });
 
 // Users
-app.get('/api/users', async (req, res) => {
+app.get('/api/users', verifyToken, verifyAdminOrStaff, async (req, res) => {
   try {
     const users = await prisma.user.findMany({
       orderBy: { id: 'asc' }
     });
-    res.json(users);
+    // Sanitize passwords from response
+    const sanitized = users.map(u => {
+      const { password, ...rest } = u;
+      return rest;
+    });
+    res.json(sanitized);
   } catch (err) {
     res.status(500).json({ error: 'Database error' });
   }
@@ -705,7 +728,7 @@ app.delete('/api/users/:id', verifyToken, verifyAdmin, async (req, res) => {
 });
 
 // System Logs & Reports
-app.get('/api/logs', async (req, res) => {
+app.get('/api/logs', verifyToken, verifyAdmin, async (req, res) => {
   try {
     const logs = await prisma.systemLog.findMany({ orderBy: { createdAt: 'desc' }, take: 100 });
     res.json(logs);
@@ -714,7 +737,7 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
-app.post('/api/logs', async (req, res) => {
+app.post('/api/logs', verifyToken, async (req, res) => {
   try {
     const { action, user, type } = req.body;
     await logSystemEvent(action, user, type);
@@ -724,7 +747,7 @@ app.post('/api/logs', async (req, res) => {
   }
 });
 
-app.get('/api/reports', async (req, res) => {
+app.get('/api/reports', verifyToken, verifyAdminOrStaff, async (req, res) => {
   try {
     const reports = await prisma.report.findMany({ orderBy: { createdAt: 'desc' } });
     res.json(reports);
@@ -733,7 +756,7 @@ app.get('/api/reports', async (req, res) => {
   }
 });
 
-app.post('/api/reports', async (req, res) => {
+app.post('/api/reports', verifyToken, verifyAdminOrStaff, async (req, res) => {
   try {
     const { type, room, format } = req.body;
     const now = new Date();
