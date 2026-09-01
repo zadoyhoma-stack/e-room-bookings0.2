@@ -21,6 +21,7 @@ model User {
   lastProfileEditDate String?
   profileEditCount   Int?     @default(0)
   profilePic         String?
+  status             String   @default("active")
   bookings           Booking[]
 }
 

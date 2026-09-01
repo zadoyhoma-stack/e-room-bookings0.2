@@ -653,6 +653,12 @@ app.patch('/api/users/:id', verifyToken, async (req, res) => {
 
     const updates = req.body;
     
+    // เข้ารหัส (Hash) รหัสผ่านใหม่ก่อนบันทึกลง Database
+    if (updates.password) {
+      const salt = await bcrypt.genSalt(10);
+      updates.password = await bcrypt.hash(updates.password, salt);
+    }
+    
     // ตรวจสอบการจำกัดจำนวนครั้งการแก้ไขต่อวัน (5 ครั้ง)
     if (updates.profilePic !== undefined || updates.nickname !== undefined) {
       const user = await prisma.user.findUnique({ where: { id } });

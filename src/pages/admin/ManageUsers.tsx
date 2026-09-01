@@ -60,6 +60,28 @@ const ManageUsers = () => {
     queryFn: () => ds.getUsers(),
   });
 
+  const updateMutation = useMutation({
+    mutationFn: ({ id, updates }: { id: string; updates: any }) => ds.updateUserData(id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_users"] });
+      toast({ title: "สำเร็จ", description: "บันทึกข้อมูลเรียบร้อยแล้ว" });
+    },
+    onError: (err: any) => {
+      toast({ title: "ข้อผิดพลาด", description: err.message || "เกิดข้อผิดพลาด", variant: "destructive" });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => ds.deleteUser(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin_users"] });
+      toast({ title: "สำเร็จ", description: "ลบผู้ใช้เรียบร้อยแล้ว" });
+    },
+    onError: (err: any) => {
+      toast({ title: "ข้อผิดพลาด", description: err.message || "เกิดข้อผิดพลาด", variant: "destructive" });
+    }
+  });
+
   // Map user data to StudentData format for the UI
   const students: StudentData[] = users.map(u => ({
     id: u.id,
@@ -67,7 +89,7 @@ const ManageUsers = () => {
     name: u.name,
     faculty: u.department || "ไม่ระบุ",
     email: u.email || "-",
-    status: "active", // mock status
+    status: u.status === "disabled" ? "disabled" : "active",
     profilePic: u.profilePic
   }));
 
@@ -87,6 +109,13 @@ const ManageUsers = () => {
     } else if (action === "Reset Password") {
       setSelectedUser(student);
       setResetModalOpen(true);
+    } else if (action === "Toggle Status") {
+      const newStatus = student.status === 'active' ? 'disabled' : 'active';
+      updateMutation.mutate({ id: student.id, updates: { status: newStatus } });
+    } else if (action === "Delete") {
+      if (confirm(`คุณแน่ใจหรือไม่ที่จะลบผู้ใช้ ${student.name}?`)) {
+        deleteMutation.mutate(student.id);
+      }
     } else {
       toast({
         title: `การดำเนินการ: ${action}`,
@@ -323,9 +352,21 @@ const ManageUsers = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" className="rounded-xl" onClick={() => setEditModalOpen(false)}>ยกเลิก</Button>
-            <Button className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white" onClick={() => {
-              toast({ title: "สำเร็จ", description: "บันทึกข้อมูลเรียบร้อยแล้ว" });
-              setEditModalOpen(false);
+            <Button className="rounded-xl bg-blue-600 hover:bg-blue-700 text-white" 
+              disabled={updateMutation.isPending}
+              onClick={() => {
+                if (!selectedUser) return;
+                const name = (document.getElementById('name') as HTMLInputElement)?.value;
+                const email = (document.getElementById('email') as HTMLInputElement)?.value;
+                const studentId = (document.getElementById('studentId') as HTMLInputElement)?.value;
+                const department = (document.getElementById('faculty') as HTMLInputElement)?.value;
+                
+                updateMutation.mutate({ 
+                  id: selectedUser.id, 
+                  updates: { name, email, studentId, department } 
+                }, {
+                  onSuccess: () => setEditModalOpen(false)
+                });
             }}>บันทึกการเปลี่ยนแปลง</Button>
           </DialogFooter>
         </DialogContent>
@@ -353,14 +394,22 @@ const ManageUsers = () => {
           </div>
           <DialogFooter>
             <Button variant="outline" className="rounded-xl" onClick={() => setResetModalOpen(false)}>ยกเลิก</Button>
-            <Button variant="default" className="rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30" onClick={() => {
-              const newPass = (document.getElementById('newPassword') as HTMLInputElement)?.value;
-              if (!newPass) {
-                toast({ title: "ข้อผิดพลาด", description: "กรุณากรอกรหัสผ่านใหม่", variant: "destructive" });
-                return;
-              }
-              toast({ title: "สำเร็จ", description: `เปลี่ยนรหัสผ่านใหม่เป็น "${newPass}" เรียบร้อยแล้ว` });
-              setResetModalOpen(false);
+            <Button variant="default" className="rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-lg shadow-amber-500/30" 
+              disabled={updateMutation.isPending}
+              onClick={() => {
+                if (!selectedUser) return;
+                const newPass = (document.getElementById('newPassword') as HTMLInputElement)?.value;
+                if (!newPass) {
+                  toast({ title: "ข้อผิดพลาด", description: "กรุณากรอกรหัสผ่านใหม่", variant: "destructive" });
+                  return;
+                }
+                updateMutation.mutate({ id: selectedUser.id, updates: { password: newPass } }, {
+                  onSuccess: () => {
+                    setResetModalOpen(false);
+                    const input = document.getElementById('newPassword') as HTMLInputElement;
+                    if (input) input.value = '';
+                  }
+                });
             }}>บันทึกรหัสผ่านใหม่</Button>
           </DialogFooter>
         </DialogContent>
