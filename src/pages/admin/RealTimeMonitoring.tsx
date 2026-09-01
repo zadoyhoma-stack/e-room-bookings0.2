@@ -39,18 +39,24 @@ const RealTimeMonitoring = () => {
   const currentMins = getMinutesSinceMidnight(currentHH);
 
   const activeBookings = bookings.filter(b => {
-    if (b.date !== todayStr || (b.status !== "approved" && b.status !== "completed")) return false; // consider completed if checking history, but we want active now
-    if (b.status === "completed") return false;
-    const startMins = getMinutesSinceMidnight(b.startTime);
+    if (b.date !== todayStr || b.status !== "approved") return false;
     const endMins = getMinutesSinceMidnight(b.endTime);
-    return currentMins >= startMins && currentMins < endMins;
-  });
+    return currentMins < endMins; // Include ongoing and upcoming for today
+  }).sort((a, b) => getMinutesSinceMidnight(a.startTime) - getMinutesSinceMidnight(b.startTime));
+
+  const uniqueRoomsBooked = new Set(activeBookings.map(b => b.roomId)).size;
+  const maintRooms = rooms.filter(r => r.status === "maintenance").length;
+  const availableRoomsCount = rooms.length - uniqueRoomsBooked - maintRooms;
 
   const getRoomStatus = (roomId: string) => {
     const room = rooms.find(r => r.id === roomId);
     if (room?.status === "maintenance") return "maintenance";
     const active = activeBookings.find(b => b.roomId === roomId);
-    if (active) return "in-use";
+    if (active) {
+      const startMins = getMinutesSinceMidnight(active.startTime);
+      if (currentMins < startMins) return "upcoming";
+      return "in-use";
+    }
     return "available";
   };
 
@@ -63,7 +69,6 @@ const RealTimeMonitoring = () => {
   };
 
   const totalCapacityInUse = activeBookings.reduce((sum, b) => sum + (b.participants || 0), 0);
-  const maintRooms = rooms.filter(r => r.status === "maintenance").length;
 
   return (
     <div className="space-y-8 pb-10">
@@ -96,7 +101,7 @@ const RealTimeMonitoring = () => {
           </div>
           <div>
             <p className="text-sm font-medium text-slate-500">ห้องว่าง</p>
-            <p className="text-2xl font-black text-slate-800 dark:text-white">{rooms.length - activeBookings.length - maintRooms}</p>
+            <p className="text-2xl font-black text-slate-800 dark:text-white">{availableRoomsCount}</p>
           </div>
         </Card>
         
@@ -161,9 +166,15 @@ const RealTimeMonitoring = () => {
                           <h3 className="text-xl font-black text-slate-800 dark:text-white">{b.roomName}</h3>
                           <p className="text-sm text-slate-500 font-medium mt-1">{b.topic || "ไม่ได้ระบุหัวข้อ"}</p>
                         </div>
-                        <div className="bg-pink-100 text-pink-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 animate-pulse">
-                          <span className="h-2 w-2 rounded-full bg-pink-500"></span> กำลังใช้งาน
-                        </div>
+                        {getMinutesSinceMidnight(b.startTime) > currentMins ? (
+                          <div className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5" /> รอใช้งาน
+                          </div>
+                        ) : (
+                          <div className="bg-pink-100 text-pink-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                            <span className="h-2 w-2 rounded-full bg-pink-500"></span> กำลังใช้งาน
+                          </div>
+                        )}
                       </div>
                       
                       <div className="space-y-4">
@@ -210,6 +221,7 @@ const RealTimeMonitoring = () => {
                 const statusColors = {
                   "available": "bg-emerald-500 shadow-emerald-500/40",
                   "in-use": "bg-pink-500 shadow-pink-500/40",
+                  "upcoming": "bg-amber-500 shadow-amber-500/40",
                   "maintenance": "bg-slate-400 shadow-slate-400/40"
                 };
                 return (
@@ -225,9 +237,10 @@ const RealTimeMonitoring = () => {
                       "text-[10px] font-bold px-2 py-1 rounded-full",
                       status === "available" ? "bg-emerald-100 text-emerald-700" :
                       status === "in-use" ? "bg-pink-100 text-pink-700" :
+                      status === "upcoming" ? "bg-amber-100 text-amber-700" :
                       "bg-slate-100 text-slate-600"
                     )}>
-                      {status === "available" ? "ว่าง" : status === "in-use" ? "ใช้งานอยู่" : "ปรับปรุง"}
+                      {status === "available" ? "ว่าง" : status === "in-use" ? "ใช้งานอยู่" : status === "upcoming" ? "รอใช้งาน" : "ปรับปรุง"}
                     </span>
                   </div>
                 );
