@@ -39,7 +39,7 @@ export const BookingCountdown = ({ date, startTime, endTime, status }: BookingCo
       const s = String(seconds).padStart(2, '0');
       
       const text = hours > 0 ? `${h}:${m}:${s}` : `${m}:${s}`;
-      return { text, isOngoing: true, isEnded: false };
+      return { text: `ระยะเวลาการใช้งานคงเหลือ ${text}`, isOngoing: true, isEnded: false };
     }
 
     const diff = start.getTime() - now.getTime();
