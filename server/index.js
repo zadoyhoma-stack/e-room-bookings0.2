@@ -124,6 +124,26 @@ function getThaiTimeStr() {
   return d.toISOString().split('T')[1].substring(0, 5);
 }
 
+// ==================== LINE Notify Helper ====================
+async function sendLineNotify(message) {
+  const token = process.env.LINE_NOTIFY_TOKEN;
+  if (!token) return;
+  try {
+    const params = new URLSearchParams();
+    params.append('message', message);
+    await fetch('https://notify-api.line.me/api/notify', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': `Bearer ${token}`
+      },
+      body: params.toString()
+    });
+  } catch (err) {
+    console.error('Failed to send LINE Notify:', err.message);
+  }
+}
+
 // ==================== System Event Logger ====================
 async function logSystemEvent(action, user, type, extra) {
   try {
@@ -442,6 +462,19 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
       return res.status(409).json({ error: 'คุณได้ส่งคำขอจองนี้ไปแล้ว กรุณารอการอนุมัติ' });
     }
 
+    // === Validation 7: Booking Limit (Max 2 per day per user) ===
+    const todayBookingsCount = await prisma.booking.count({
+      where: {
+        userId: actualUserId,
+        date: date,
+        status: { in: ['pending', 'approved'] }
+      }
+    });
+    if (todayBookingsCount >= 2) {
+      logSystemEvent(`BOOKING_LIMIT_REACHED: ${actualUserId} จองเกิน 2 ครั้งในวันที่ ${date}`, requesterInfo, 'booking');
+      return res.status(400).json({ error: 'คุณจองห้องครบสิทธิ์ 2 ครั้งต่อวันแล้วครับ' });
+    }
+
     // === Create User if not exists ===
     const actualUserName = req.user.username || userName || 'ผู้ใช้ทั่วไป';
     const user = await prisma.user.upsert({
@@ -486,6 +519,10 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
 
     io.emit('new_booking', bookingResponse);
     logSystemEvent(`BOOKING_CREATE: ${room.name} ${date} ${startTime}-${endTime} Booking#${newBooking.id}`, requesterInfo, 'booking');
+
+    // ส่ง LINE Notify เมื่อกดจองสำเร็จ
+    sendLineNotify(`🔔 แจ้งเตือนการจองใหม่!\nผู้จอง: ${bookingResponse.userName}\nห้อง: ${bookingResponse.roomName}\nวันที่: ${bookingResponse.date}\nเวลา: ${bookingResponse.startTime} - ${bookingResponse.endTime}`);
+
     res.status(201).json(bookingResponse);
   } catch (err) {
     console.error(err);
@@ -821,6 +858,38 @@ setInterval(async () => {
     console.error('[Auto-Expire Error]', err);
   }
 }, 30000);
+
+// ==================== Auto LINE Reminder (15 Mins Before) ====================
+const notifiedReminders = new Set();
+setInterval(async () => {
+  try {
+    const thaiDate = getThaiNow();
+    const currentDate = getThaiDateStr();
+    const currentTotalMinutes = thaiDate.getHours() * 60 + thaiDate.getMinutes();
+
+    const upcomingBookings = await prisma.booking.findMany({
+      where: {
+        status: 'approved',
+        date: currentDate
+      },
+      include: { room: true }
+    });
+
+    for (const b of upcomingBookings) {
+      const [h, m] = b.startTime.split(':').map(Number);
+      const startTotalMinutes = h * 60 + m;
+      const minutesRemaining = startTotalMinutes - currentTotalMinutes;
+
+      // ถ้าเหลือเวลา 15 นาที และยังไม่เคยแจ้งเตือน
+      if (minutesRemaining > 0 && minutesRemaining <= 15 && !notifiedReminders.has(b.id)) {
+        notifiedReminders.add(b.id);
+        sendLineNotify(`⏰ เตือนความจำ!\nห้อง: ${b.room.name}\nกำลังจะเริ่มใช้งานในอีก ${minutesRemaining} นาที\n(เวลา ${b.startTime} น.)\nผู้จอง: ${b.userName || b.userId}`);
+      }
+    }
+  } catch (err) {
+    console.error('[Auto-Line-Reminder Error]', err);
+  }
+}, 60000); // Check every 60 seconds
 
 // ==================== Serve React Frontend (Production) ====================
 // Check if running in production or if the dist folder exists
