@@ -2,13 +2,15 @@ import { Routes, Route, Link, useLocation, Navigate } from "react-router-dom";
 import { CalendarCheck, DoorOpen, Star, Home, LogOut, Users, Menu, AlertTriangle, LayoutDashboard, Moon, Sun, Activity } from "lucide-react";
 import React, { Suspense } from "react";
 
-// Lazy-load ทุก sub-page
-const StaffDashboard = React.lazy(() => import("./staff/StaffDashboard"));
-const StaffBookings = React.lazy(() => import("./staff/StaffBookings"));
-const StaffRoomStatus = React.lazy(() => import("./staff/StaffRoomStatus"));
-const StaffEvaluations = React.lazy(() => import("./staff/StaffEvaluations"));
-const StaffProblems = React.lazy(() => import("./staff/StaffProblems"));
-const ActivityLogs = React.lazy(() => import("./admin/ActivityLogs"));
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
+
+// Lazy-load ทุก sub-page พร้อมระบบ auto-retry กรณี Vercel redeploy
+const StaffDashboard = lazyWithRetry(() => import("./staff/StaffDashboard"));
+const StaffBookings = lazyWithRetry(() => import("./staff/StaffBookings"));
+const StaffRoomStatus = lazyWithRetry(() => import("./staff/StaffRoomStatus"));
+const StaffEvaluations = lazyWithRetry(() => import("./staff/StaffEvaluations"));
+const StaffProblems = lazyWithRetry(() => import("./staff/StaffProblems"));
+const ActivityLogs = lazyWithRetry(() => import("./admin/ActivityLogs"));
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";

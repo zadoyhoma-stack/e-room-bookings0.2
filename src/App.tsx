@@ -7,10 +7,12 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
-// Lazy-load heavy pages เพื่อลด initial bundle size
-const Admin = React.lazy(() => import("./pages/Admin"));
-const Staff = React.lazy(() => import("./pages/Staff"));
-const MyBookingsPage = React.lazy(() => import("./pages/MyBookingsPage"));
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
+
+// Lazy-load heavy pages เพื่อลด initial bundle size พร้อมระบบ auto-retry กรณี Vercel redeploy
+const Admin = lazyWithRetry(() => import("./pages/Admin"));
+const Staff = lazyWithRetry(() => import("./pages/Staff"));
+const MyBookingsPage = lazyWithRetry(() => import("./pages/MyBookingsPage"));
 
 // ตั้งค่า QueryClient ให้ cache data อย่างเหมาะสม ลด re-fetch ซ้ำซ้อน
 const queryClient = new QueryClient({

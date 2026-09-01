@@ -7,16 +7,18 @@ import {
 } from "lucide-react";
 import React, { useState, Suspense } from "react";
 
-// Lazy-load ทุก sub-page เพื่อลด bundle size และโหลดเร็วขึ้น
-const AdminDashboard = React.lazy(() => import("./admin/AdminDashboard"));
-const ManageBookings = React.lazy(() => import("./admin/ManageBookings"));
-const ManageUsers = React.lazy(() => import("./admin/ManageUsers"));
-const RoomManagement = React.lazy(() => import("./admin/RoomManagement"));
-const Reports = React.lazy(() => import("./admin/Reports"));
-const ActivityLogs = React.lazy(() => import("./admin/ActivityLogs"));
-const ManageProblems = React.lazy(() => import("./admin/ManageProblems"));
-const ViewEvaluations = React.lazy(() => import("./admin/ViewEvaluations"));
-const RealTimeMonitoring = React.lazy(() => import("./admin/RealTimeMonitoring"));
+import { lazyWithRetry } from "@/utils/lazyWithRetry";
+
+// Lazy-load ทุก sub-page เพื่อลด bundle size พร้อมระบบ auto-retry กรณี Vercel redeploy
+const AdminDashboard = lazyWithRetry(() => import("./admin/AdminDashboard"));
+const ManageBookings = lazyWithRetry(() => import("./admin/ManageBookings"));
+const ManageUsers = lazyWithRetry(() => import("./admin/ManageUsers"));
+const RoomManagement = lazyWithRetry(() => import("./admin/RoomManagement"));
+const Reports = lazyWithRetry(() => import("./admin/Reports"));
+const ActivityLogs = lazyWithRetry(() => import("./admin/ActivityLogs"));
+const ManageProblems = lazyWithRetry(() => import("./admin/ManageProblems"));
+const ViewEvaluations = lazyWithRetry(() => import("./admin/ViewEvaluations"));
+const RealTimeMonitoring = lazyWithRetry(() => import("./admin/RealTimeMonitoring"));
 
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
