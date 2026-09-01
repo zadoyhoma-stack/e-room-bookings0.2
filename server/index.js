@@ -648,14 +648,15 @@ app.patch('/api/bookings/:id', verifyToken, async (req, res) => {
 // Problems
 app.post('/api/problems', async (req, res) => {
   try {
-    const { room, problemType, details, urgency, rating, image } = req.body;
-    if (!room || !problemType || !details) {
+    const { room, roomId, problemType, details, urgency, rating, image } = req.body;
+    const actualRoomId = roomId || room;
+    if (!actualRoomId || !problemType || !details) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     const newProblem = await prisma.problem.create({
       data: {
-        roomId: room,
+        roomId: actualRoomId,
         problemType,
         details,
         image: image || null,
