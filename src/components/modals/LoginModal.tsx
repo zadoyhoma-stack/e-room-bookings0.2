@@ -136,6 +136,7 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
                 shape="pill"
                 text="signin_with"
                 size="large"
+                hosted_domain="rmu.ac.th"
               />
               <p className="text-sm text-slate-600 mt-3 font-semibold bg-slate-50 px-4 py-1.5 rounded-full border border-slate-200 shadow-sm">
                 🎓 สำหรับนักศึกษา (เฉพาะอีเมล @rmu.ac.th)
