@@ -27,6 +27,12 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    
+    if (!username.trim().endsWith('@rmu.ac.th')) {
+      setError('อีเมลไม่ถูกต้อง (ต้องลงท้ายด้วย @rmu.ac.th เท่านั้น)');
+      return;
+    }
+
     setLoading(true);
 
     await new Promise(r => setTimeout(r, 600)); // Simulate async
@@ -148,18 +154,18 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
                 <div className="w-full border-t border-slate-200"></div>
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-white/80 text-slate-500 font-medium rounded-full">หรือเข้าสู่ระบบด้วยชื่อผู้ใช้ (สำหรับ Admin และเจ้าหน้าที่)</span>
+                <span className="px-2 bg-white/80 text-slate-500 font-medium rounded-full">หรือเข้าสู่ระบบด้วยอีเมลมหาวิทยาลัย</span>
               </div>
             </div>
 
             {/* Form */}
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-1.5">
-                <Label className="text-slate-700 text-sm font-semibold ml-1">ชื่อผู้ใช้</Label>
+                <Label className="text-slate-700 text-sm font-semibold ml-1">อีเมล (@rmu.ac.th เท่านั้น)</Label>
                 <Input
                   value={username}
                   onChange={e => setUsername(e.target.value)}
-                  placeholder="เช่น admin, staff01, student01"
+                  placeholder="เช่น student@rmu.ac.th"
                   className="bg-white/70 border-blue-100 text-slate-800 placeholder:text-slate-400 rounded-xl focus:border-blue-400 focus:ring-4 focus:ring-blue-100/50 h-11 text-sm transition-all shadow-sm"
                   autoComplete="username"
                 />

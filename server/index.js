@@ -257,6 +257,11 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Missing username or password' });
     }
 
+    // ตรวจสอบว่าต้องลงท้ายด้วย @rmu.ac.th เท่านั้น
+    if (!username.endsWith('@rmu.ac.th')) {
+      return res.status(400).json({ error: 'อีเมลไม่ถูกต้อง (ต้องลงท้ายด้วย @rmu.ac.th เท่านั้น)' });
+    }
+
     const user = await prisma.user.findFirst({
       where: { 
         OR: [

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { GlassCard } from "@/components/shared/GlassCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
+import { BookingCountdown } from "@/components/shared/BookingCountdown";
 import { Button } from "@/components/ui/button";
 import { CalendarPlus, XCircle, Inbox, LogIn } from "lucide-react";
 import {
@@ -112,7 +113,10 @@ export const MyBookings = ({ bookings = [], onCancel, onAddToCalendar }: MyBooki
                             {b.topic || "-"}
                           </TableCell>
                           <TableCell>
-                            <StatusBadge status={b.status} />
+                            <div className="flex flex-col items-start gap-1.5">
+                              <StatusBadge status={b.status} />
+                              <BookingCountdown date={b.date} startTime={b.startTime} endTime={b.endTime} status={b.status} />
+                            </div>
                           </TableCell>
 
                           <TableCell className="text-right space-x-1">
@@ -156,7 +160,10 @@ export const MyBookings = ({ bookings = [], onCancel, onAddToCalendar }: MyBooki
                     <div key={b.id} className="border border-slate-100 rounded-xl p-3 bg-slate-50/50 shadow-sm flex flex-col gap-2">
                       <div className="flex justify-between items-start">
                         <div className="font-medium text-slate-800">{b.roomName}</div>
-                        <StatusBadge status={b.status} />
+                        <div className="flex flex-col items-end gap-1.5">
+                          <StatusBadge status={b.status} />
+                          <BookingCountdown date={b.date} startTime={b.startTime} endTime={b.endTime} status={b.status} />
+                        </div>
                       </div>
                       <div className="text-sm text-slate-600 flex flex-col gap-0.5">
                         <div className="flex items-center justify-between">
