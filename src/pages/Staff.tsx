@@ -10,13 +10,12 @@ import * as ds from "@/services/dataService";
 import { useTheme } from "@/contexts/ThemeProvider";
 import { toast } from "sonner";
 
-// Lazy-load ทุก sub-page พร้อมระบบ auto-retry กรณี Vercel redeploy
-const StaffDashboard = lazyWithRetry(() => import("./staff/StaffDashboard"));
-const StaffBookings = lazyWithRetry(() => import("./staff/StaffBookings"));
-const StaffRoomStatus = lazyWithRetry(() => import("./staff/StaffRoomStatus"));
-const StaffEvaluations = lazyWithRetry(() => import("./staff/StaffEvaluations"));
-const StaffProblems = lazyWithRetry(() => import("./staff/StaffProblems"));
-const ActivityLogs = lazyWithRetry(() => import("./admin/ActivityLogs"));
+import StaffDashboard from "./staff/StaffDashboard";
+import StaffBookings from "./staff/StaffBookings";
+import StaffRoomStatus from "./staff/StaffRoomStatus";
+import StaffEvaluations from "./staff/StaffEvaluations";
+import StaffProblems from "./staff/StaffProblems";
+import ActivityLogs from "./admin/ActivityLogs";
 
 const Staff = () => {
   const location = useLocation();

@@ -16,16 +16,15 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { useTheme } from "next-themes";
 import { ProfileModal } from "@/components/modals/ProfileModal";
 
-// Lazy-load ทุก sub-page เพื่อลด bundle size พร้อมระบบ auto-retry กรณี Vercel redeploy
-const AdminDashboard = lazyWithRetry(() => import("./admin/AdminDashboard"));
-const ManageBookings = lazyWithRetry(() => import("./admin/ManageBookings"));
-const ManageUsers = lazyWithRetry(() => import("./admin/ManageUsers"));
-const RoomManagement = lazyWithRetry(() => import("./admin/RoomManagement"));
-const Reports = lazyWithRetry(() => import("./admin/Reports"));
-const ActivityLogs = lazyWithRetry(() => import("./admin/ActivityLogs"));
-const ManageProblems = lazyWithRetry(() => import("./admin/ManageProblems"));
-const ViewEvaluations = lazyWithRetry(() => import("./admin/ViewEvaluations"));
-const RealTimeMonitoring = lazyWithRetry(() => import("./admin/RealTimeMonitoring"));
+import AdminDashboard from "./admin/AdminDashboard";
+import ManageBookings from "./admin/ManageBookings";
+import ManageUsers from "./admin/ManageUsers";
+import RoomManagement from "./admin/RoomManagement";
+import Reports from "./admin/Reports";
+import ActivityLogs from "./admin/ActivityLogs";
+import ManageProblems from "./admin/ManageProblems";
+import ViewEvaluations from "./admin/ViewEvaluations";
+import RealTimeMonitoring from "./admin/RealTimeMonitoring";
 
 const Admin = () => {
   const location = useLocation();
