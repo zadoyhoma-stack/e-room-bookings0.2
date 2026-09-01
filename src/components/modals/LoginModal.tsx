@@ -132,7 +132,6 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
                 onError={() => {
                   setError('เกิดข้อผิดพลาดในการเชื่อมต่อกับ Google');
                 }}
-                useOneTap
                 theme="outline"
                 shape="pill"
                 text="signin_with"
