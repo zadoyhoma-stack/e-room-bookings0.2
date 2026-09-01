@@ -6,8 +6,15 @@ import {
   AlertTriangle, Star
 } from "lucide-react";
 import React, { useState, Suspense } from "react";
-
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { useTheme } from "next-themes";
+import { ProfileModal } from "@/components/modals/ProfileModal";
 
 // Lazy-load ทุก sub-page เพื่อลด bundle size พร้อมระบบ auto-retry กรณี Vercel redeploy
 const AdminDashboard = lazyWithRetry(() => import("./admin/AdminDashboard"));
@@ -19,15 +26,6 @@ const ActivityLogs = lazyWithRetry(() => import("./admin/ActivityLogs"));
 const ManageProblems = lazyWithRetry(() => import("./admin/ManageProblems"));
 const ViewEvaluations = lazyWithRetry(() => import("./admin/ViewEvaluations"));
 const RealTimeMonitoring = lazyWithRetry(() => import("./admin/RealTimeMonitoring"));
-
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { useTheme } from "next-themes";
-import { ProfileModal } from "@/components/modals/ProfileModal";
 
 const Admin = () => {
   const location = useLocation();

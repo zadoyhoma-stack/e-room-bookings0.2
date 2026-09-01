@@ -1,8 +1,14 @@
-import { Routes, Route, Link, useLocation, Navigate } from "react-router-dom";
+import { Routes, Route, Link, useLocation, Navigate, useNavigate } from "react-router-dom";
 import { CalendarCheck, DoorOpen, Star, Home, LogOut, Users, Menu, AlertTriangle, LayoutDashboard, Moon, Sun, Activity } from "lucide-react";
-import React, { Suspense } from "react";
-
+import React, { useState, useEffect, Suspense } from "react";
 import { lazyWithRetry } from "@/utils/lazyWithRetry";
+import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Booking, Problem } from "@/data/mockData";
+import * as ds from "@/services/dataService";
+import { useTheme } from "@/contexts/ThemeProvider";
+import { toast } from "sonner";
 
 // Lazy-load ทุก sub-page พร้อมระบบ auto-retry กรณี Vercel redeploy
 const StaffDashboard = lazyWithRetry(() => import("./staff/StaffDashboard"));
@@ -11,16 +17,6 @@ const StaffRoomStatus = lazyWithRetry(() => import("./staff/StaffRoomStatus"));
 const StaffEvaluations = lazyWithRetry(() => import("./staff/StaffEvaluations"));
 const StaffProblems = lazyWithRetry(() => import("./staff/StaffProblems"));
 const ActivityLogs = lazyWithRetry(() => import("./admin/ActivityLogs"));
-
-import { cn } from "@/lib/utils";
-import { useAuth } from "@/contexts/AuthContext";
-import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Booking, Problem } from "@/data/mockData";
-import * as ds from "@/services/dataService";
-import { useTheme } from "@/contexts/ThemeProvider";
-import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 
 const Staff = () => {
   const location = useLocation();
