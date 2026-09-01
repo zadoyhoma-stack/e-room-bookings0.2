@@ -10,6 +10,7 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
+import nodemailer from 'nodemailer';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -124,23 +125,26 @@ function getThaiTimeStr() {
   return d.toISOString().split('T')[1].substring(0, 5);
 }
 
-// ==================== LINE Notify Helper ====================
-async function sendLineNotify(message) {
-  const token = process.env.LINE_NOTIFY_TOKEN;
-  if (!token) return;
+// ==================== Email Notify Helper ====================
+async function sendEmailNotify(toEmail, subject, text) {
+  const user = process.env.EMAIL_USER;
+  const pass = process.env.EMAIL_PASS;
+  if (!user || !pass || !toEmail) return;
+
   try {
-    const params = new URLSearchParams();
-    params.append('message', message);
-    await fetch('https://notify-api.line.me/api/notify', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Bearer ${token}`
-      },
-      body: params.toString()
+    const transporter = nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass }
+    });
+
+    await transporter.sendMail({
+      from: `"ARIT E-ROOMs" <${user}>`,
+      to: toEmail,
+      subject: subject,
+      text: text
     });
   } catch (err) {
-    console.error('Failed to send LINE Notify:', err.message);
+    console.error('Failed to send Email Notify:', err.message);
   }
 }
 
@@ -520,8 +524,15 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
     io.emit('new_booking', bookingResponse);
     logSystemEvent(`BOOKING_CREATE: ${room.name} ${date} ${startTime}-${endTime} Booking#${newBooking.id}`, requesterInfo, 'booking');
 
-    // ส่ง LINE Notify เมื่อกดจองสำเร็จ
-    sendLineNotify(`🔔 แจ้งเตือนการจองใหม่!\nผู้จอง: ${bookingResponse.userName}\nห้อง: ${bookingResponse.roomName}\nวันที่: ${bookingResponse.date}\nเวลา: ${bookingResponse.startTime} - ${bookingResponse.endTime}`);
+    // ส่ง Email Notify เมื่อกดจองสำเร็จ
+    const targetEmail = req.user.email || email;
+    if (targetEmail) {
+      sendEmailNotify(
+        targetEmail, 
+        'ยืนยันการจองห้อง ARIT E-ROOMs', 
+        `🔔 แจ้งเตือนการจองสำเร็จ!\nผู้จอง: ${bookingResponse.userName}\nห้อง: ${bookingResponse.roomName}\nวันที่: ${bookingResponse.date}\nเวลา: ${bookingResponse.startTime} - ${bookingResponse.endTime}\n\nกรุณารอเจ้าหน้าที่อนุมัติการใช้งานครับ`
+      );
+    }
 
     res.status(201).json(bookingResponse);
   } catch (err) {
@@ -883,7 +894,12 @@ setInterval(async () => {
       // ถ้าเหลือเวลา 15 นาที และยังไม่เคยแจ้งเตือน
       if (minutesRemaining > 0 && minutesRemaining <= 15 && !notifiedReminders.has(b.id)) {
         notifiedReminders.add(b.id);
-        sendLineNotify(`⏰ เตือนความจำ!\nห้อง: ${b.room.name}\nกำลังจะเริ่มใช้งานในอีก ${minutesRemaining} นาที\n(เวลา ${b.startTime} น.)\nผู้จอง: ${b.userName || b.userId}`);
+        const targetEmail = b.email || `${b.userId}@rmu.ac.th`; // Fallback email
+        sendEmailNotify(
+          targetEmail,
+          '⏰ เตือนความจำการจองห้อง!',
+          `ห้อง: ${b.room.name}\nกำลังจะเริ่มใช้งานในอีก ${minutesRemaining} นาที\n(เวลา ${b.startTime} น.)\nผู้จอง: ${b.userName || b.userId}\n\nกรุณาเข้าใช้งานให้ตรงเวลาครับ`
+        );
       }
     }
   } catch (err) {
