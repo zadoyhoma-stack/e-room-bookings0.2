@@ -189,10 +189,11 @@ app.post('/api/auth/google', async (req, res) => {
         }
       });
     } else {
-      // Update profile pic and googleId if they already exist
+      // Update profile pic, googleId, and name if they already exist
       const updateData = {};
       if (picture && user.profilePic !== picture) updateData.profilePic = picture;
       if (!user.googleId) updateData.googleId = payload.sub;
+      if (name && user.name !== name) updateData.name = name; // Update name from Google
 
       if (Object.keys(updateData).length > 0) {
         user = await prisma.user.update({
