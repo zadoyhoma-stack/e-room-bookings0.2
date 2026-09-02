@@ -66,10 +66,11 @@ try {
   const targetServerUrl = API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
   if (targetServerUrl) {
     socket = io(targetServerUrl, {
-      transports: ['websocket', 'polling'],
-      reconnectionDelay: 3000,
-      reconnectionDelayMax: 15000,
-      reconnectionAttempts: 10,
+      transports: ['polling'],
+      upgrade: false,
+      reconnectionDelay: 5000,
+      reconnectionDelayMax: 20000,
+      reconnectionAttempts: 5,
       timeout: 10000,
     });
   }
