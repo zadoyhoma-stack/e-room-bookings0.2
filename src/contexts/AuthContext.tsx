@@ -65,9 +65,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || (typeof window !== 'undefined' && window.location.hostname.includes('vercel.app') ? 'https://e-room-bookings0-2.onrender.com' : '');
+
   const login = async (username: string, password: string): Promise<boolean> => {
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(API_BASE_URL + '/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -91,7 +93,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loginWithGoogle = async (credential: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      const res = await fetch('/api/auth/google', {
+      const res = await fetch(API_BASE_URL + '/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ token: credential })

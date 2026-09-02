@@ -412,6 +412,20 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// Local database.json Failsafe Fallback Helper
+function getLocalFallback(table) {
+  try {
+    const dbPath = path.join(__dirname, 'database.json');
+    if (fs.existsSync(dbPath)) {
+      const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+      return data[table] || [];
+    }
+  } catch (e) {
+    console.error('Local fallback read error:', e);
+  }
+  return [];
+}
+
 // Rooms
 app.get('/api/rooms', async (req, res) => {
   try {
@@ -420,7 +434,9 @@ app.get('/api/rooms', async (req, res) => {
     });
     res.json(rooms);
   } catch (err) {
-    res.status(500).json({ error: 'Database error' });
+    console.warn('[Prisma Warning] Falling back to local database.json for rooms:', err.message);
+    const rooms = getLocalFallback('rooms');
+    res.json(rooms);
   }
 });
 
@@ -474,6 +490,7 @@ app.post('/api/rooms/seed', verifyToken, verifyAdmin, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
 // ==================== Auto Expire Helper ====================
 async function autoExpireBookings() {
   try {
@@ -542,7 +559,9 @@ app.get('/api/bookings', async (req, res) => {
     });
     res.json(mapped);
   } catch (err) {
-    res.status(500).json({ error: 'Database error' });
+    console.warn('[Prisma Warning] Falling back to local database.json for bookings:', err.message);
+    const localBookings = getLocalFallback('bookings');
+    res.json(localBookings);
   }
 });
 
@@ -823,7 +842,9 @@ app.get('/api/problems', async (req, res) => {
     const problems = await prisma.problem.findMany({ orderBy: { reportedAt: 'desc' } });
     res.json(problems);
   } catch (err) {
-    res.status(500).json({ error: 'Database error' });
+    console.warn('[Prisma Warning] Falling back to local database.json for problems:', err.message);
+    const problems = getLocalFallback('problems');
+    res.json(problems);
   }
 });
 
@@ -863,7 +884,9 @@ app.get('/api/evaluations', async (req, res) => {
     const evals = await prisma.evaluation.findMany({ orderBy: { submittedAt: 'desc' } });
     res.json(evals);
   } catch (err) {
-    res.status(500).json({ error: 'Database error' });
+    console.warn('[Prisma Warning] Falling back to local database.json for evaluations:', err.message);
+    const evals = getLocalFallback('evaluations');
+    res.json(evals);
   }
 });
 
@@ -1047,6 +1070,10 @@ if (fs.existsSync(distPath)) {
       res.status(404).json({ error: 'API route not found' });
     }
   });
+} else {
+  console.log("No 'dist' folder found. Running in development mode.");
+}
+
 // Global Error Handler Middleware (Guarantees CORS headers even on 500 server crashes)
 app.use((err, req, res, next) => {
   console.error('[UNHANDLED EXPRESS ERROR]', err);
