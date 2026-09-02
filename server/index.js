@@ -68,11 +68,20 @@ app.use((req, res, next) => {
 const blockedAttackerIps = new Map();
 
 const getClientIp = (req) => {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (forwarded) {
-    return forwarded.split(',')[0].trim();
+  try {
+    const forwarded = req.headers['x-forwarded-for'];
+    if (typeof forwarded === 'string' && forwarded.length > 0) {
+      return forwarded.split(',')[0].trim();
+    }
+    if (Array.isArray(forwarded) && forwarded.length > 0) {
+      return String(forwarded[0]).split(',')[0].trim();
+    }
+    if (req.ip) return String(req.ip);
+    if (req.socket && req.socket.remoteAddress) return String(req.socket.remoteAddress);
+  } catch (e) {
+    console.error('Error parsing client IP:', e);
   }
-  return req.ip || req.socket.remoteAddress || 'Unknown IP';
+  return 'Unknown-IP';
 };
 
 // 1. General Anti-DDoS Rate Limiter for all API routes (Max 120 requests/min per IP)
@@ -81,6 +90,7 @@ const globalLimiter = rateLimit({
   max: 120, // Max 120 requests per minute per IP
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => getClientIp(req),
   handler: (req, res) => {
     const ip = getClientIp(req);
     const prev = blockedAttackerIps.get(ip) || { count: 0, firstBlocked: new Date() };
@@ -105,6 +115,7 @@ const strictMutationLimiter = rateLimit({
   max: 30, // Max 30 requests per minute per IP
   standardHeaders: true,
   legacyHeaders: false,
+  keyGenerator: (req) => getClientIp(req),
   handler: (req, res) => {
     const ip = getClientIp(req);
     console.warn(`[🚨 SPAM BLOCKED] IP: ${ip} attempted mutation spam on ${req.originalUrl}`);
@@ -1036,9 +1047,15 @@ if (fs.existsSync(distPath)) {
       res.status(404).json({ error: 'API route not found' });
     }
   });
-} else {
-  console.log("No 'dist' folder found. Running in development mode.");
-}
+// Global Error Handler Middleware (Guarantees CORS headers even on 500 server crashes)
+app.use((err, req, res, next) => {
+  console.error('[UNHANDLED EXPRESS ERROR]', err);
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.status(500).json({ error: '🛡️ [Protection Triggered] เกิดข้อผิดพลาดของเซิร์ฟเวอร์ กรุณารอสักครู่' });
+});
 
 httpServer.listen(PORT, () => {
   console.log(`ARIT E-ROOMs backend running on http://localhost:${PORT}`);
