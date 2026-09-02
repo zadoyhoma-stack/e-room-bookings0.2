@@ -576,7 +576,7 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
       where: {
         roomId: roomId,
         date: date,
-        status: { in: ['pending', 'approved'] },
+        status: { in: ['pending', 'approved', 'completed'] },
         startTime: { lt: endTime },
         endTime: { gt: startTime }
       }

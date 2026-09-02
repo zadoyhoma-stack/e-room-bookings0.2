@@ -75,7 +75,7 @@ const checkTimeOverlap = (
   return bookings.find(b => {
     if (b.roomId !== roomId) return false;
     if (b.date !== date) return false;
-    if (b.status !== 'pending' && b.status !== 'approved') return false;
+    if (b.status === 'cancelled' || b.status === 'rejected') return false;
     if (excludeBookingId && b.id === excludeBookingId) return false;
 
     const sStart = timeToMinutes(startTime);

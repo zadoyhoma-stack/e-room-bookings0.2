@@ -57,9 +57,9 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
     }
 
     const roomBookings = bookingsByRoom[room.id] || [];
-    // กรองเฉพาะ Booking ที่แอคทีฟ — pending + approved
+    // กรองเฉพาะ Booking ที่แอคทีฟ — pending + approved + completed
     const activeBookings = roomBookings.filter(b => 
-      b.status === 'pending' || b.status === 'approved'
+      b.status === 'pending' || b.status === 'approved' || b.status === 'completed'
     );
     
     const booking = activeBookings.find(b => {
