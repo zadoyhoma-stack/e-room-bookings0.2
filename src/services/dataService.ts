@@ -197,11 +197,12 @@ function autoExpireLocalBookings(bookings: Booking[]): Booking[] {
   let changed = false;
 
   const updated = bookings.map(b => {
-    if (b.status === 'pending' || b.status === 'approved') {
-      if (b.date < currentDate || (b.date === currentDate && b.endTime <= currentHour)) {
-        changed = true;
-        return { ...b, status: 'completed' as const };
-      }
+    const isPastDate = b.date < currentDate;
+    const isTodayPastHour = b.date === currentDate && b.endTime <= currentHour;
+
+    if ((isPastDate && (b.status === 'pending' || b.status === 'approved')) || (isTodayPastHour && b.status === 'approved')) {
+      changed = true;
+      return { ...b, status: 'completed' as const };
     }
     return b;
   });

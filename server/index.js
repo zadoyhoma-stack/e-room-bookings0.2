@@ -371,10 +371,9 @@ async function autoExpireBookings() {
 
     const expiredBookings = await prisma.booking.findMany({
       where: {
-        status: { in: ['pending', 'approved'] },
         OR: [
-          { date: { lt: currentDate } },
-          { date: currentDate, endTime: { lte: currentHour } }
+          { date: { lt: currentDate }, status: { in: ['pending', 'approved'] } },
+          { date: currentDate, endTime: { lte: currentHour }, status: 'approved' }
         ]
       }
     });

@@ -81,7 +81,7 @@ const StaffBookings = () => {
     let r = tab === "all" ? bookings : bookings.filter(b => b.status === tab);
     if (search.trim()) {
       const t = search.toLowerCase();
-      r = r.filter(b => b.roomName.toLowerCase().includes(t) || (b.userName || "").toLowerCase().includes(t) || (b.topic || "").toLowerCase().includes(t));
+      r = r.filter(b => (b.roomName || "").toLowerCase().includes(t) || (b.userName || "").toLowerCase().includes(t) || (b.topic || "").toLowerCase().includes(t));
     }
     return r;
   }, [bookings, tab, search]);
