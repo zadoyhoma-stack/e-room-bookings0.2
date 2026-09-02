@@ -105,12 +105,23 @@ const Index = () => {
     }
   }, [currentUser, navigate]);
 
+  // คำนวณวันที่เริ่มต้น (หากเกิน 15:00 น. ให้ปรับเป็นวันพรุ่งนี้อัตโนมัติ)
+  const getInitialDate = () => {
+    const now = new Date();
+    if (now.getHours() >= 15) {
+      const tomorrow = new Date(now);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      return tomorrow;
+    }
+    return now;
+  };
+
   // State
   const [rooms, setRooms] = useState<Room[]>([]);
   const [filteredRooms, setFilteredRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(getInitialDate());
   const [selectedRoomId, setSelectedRoomId] = useState<string>('all');
   const [realTimeHH, setRealTimeHH] = useState(format(new Date(), 'HH:mm'));
   const [realTimeDate, setRealTimeDate] = useState(format(new Date(), 'yyyy-MM-dd'));

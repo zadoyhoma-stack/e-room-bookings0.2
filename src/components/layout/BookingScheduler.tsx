@@ -91,7 +91,7 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
       const [nowH, nowM] = realTimeHH.split(':').map(Number);
       const nowMins = nowH * 60 + nowM;
       if (slotEndMins <= nowMins) {
-        return { status: 'maintenance', label: 'ผ่านไปแล้ว' };
+        return { status: 'past', label: 'ผ่านไปแล้ว' };
       }
     }
 
@@ -100,6 +100,20 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
 
   return (
     <div id="booking-scheduler" className="flex flex-col gap-4 mt-2">
+      {realTimeDate && selectedDateStr === realTimeDate && realTimeHH && realTimeHH >= '15:00' && (
+        <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-400/40 backdrop-blur-md text-amber-100 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-500/30 rounded-xl shrink-0">
+              <Clock className="w-5 h-5 text-amber-300" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">ขณะนี้เลยเวลาทำการของวันนี้แล้ว (08:00 - 15:30 น.)</p>
+              <p className="text-xs text-amber-200/90 mt-0.5">ทุกช่วงเวลาสำหรับวันนี้ผ่านไปแล้ว คุณสามารถเลือกวันที่ถัดไปที่ต้องการจองจากเมนูด้านบนได้เลยครับ</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {rooms.map(room => (
         <div key={room.id} className="group w-full">
           {/* Main Card (Header) */}
@@ -212,10 +226,14 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
                     slotClass = "bg-slate-400/90 dark:bg-slate-700/80 cursor-not-allowed shadow-inner border-slate-500/50 dark:border-slate-600/40";
                     textClass = "text-slate-100 dark:text-slate-300 font-semibold line-through";
                     labelClass = "text-slate-200 dark:text-slate-400 font-medium";
+                  } else if (slot.status === 'past') {
+                    slotClass = "bg-blue-950/30 dark:bg-slate-800/60 cursor-not-allowed border-white/10 opacity-70";
+                    textClass = "text-blue-200/60 font-semibold line-through";
+                    labelClass = "text-blue-200/50 font-medium";
                   } else if (slot.status === 'maintenance') {
-                    slotClass = "bg-black/20 dark:bg-black/40 cursor-not-allowed border-white/10 dark:border-slate-700/30";
-                    textClass = "text-white/50 dark:text-slate-500 font-semibold line-through";
-                    labelClass = "text-white/40 dark:text-slate-600 font-medium";
+                    slotClass = "bg-rose-950/40 dark:bg-rose-900/60 cursor-not-allowed border-rose-400/30";
+                    textClass = "text-rose-200/60 font-semibold line-through";
+                    labelClass = "text-rose-200/50 font-medium";
                   }
 
                   return (
