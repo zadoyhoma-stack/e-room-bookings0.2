@@ -43,6 +43,7 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
+app.use(express.json());
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -54,6 +55,7 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+  res.header('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
   res.set('Pragma', 'no-cache');
   res.set('Expires', '0');
@@ -377,24 +379,22 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Missing username or password' });
     }
 
-    if (!username.endsWith('@rmu.ac.th')) {
-      return res.status(400).json({ error: 'อีเมลไม่ถูกต้อง (ต้องลงท้ายด้วย @rmu.ac.th เท่านั้น)' });
-    }
+    const cleanUsername = username.trim();
 
     let user = null;
     try {
       user = await prisma.user.findFirst({
         where: { 
           OR: [
-            { username: username },
-            { email: username }
+            { username: cleanUsername },
+            { email: cleanUsername }
           ]
         }
       });
     } catch (dbErr) {
       console.warn('[Prisma Warning] Falling back to local database.json for login:', dbErr.message);
       const localUsers = getLocalFallback('users');
-      user = localUsers.find(u => u.username === username || u.email === username);
+      user = localUsers.find(u => u.username === cleanUsername || u.email === cleanUsername);
     }
 
     if (!user || !user.password) {
@@ -412,8 +412,9 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
+    const userUsername = user.username || (user.email ? user.email.split('@')[0] : user.id);
     const token = jwt.sign(
-      { id: user.id, username: user.username, role: user.role },
+      { id: user.id, username: userUsername, role: user.role },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -424,7 +425,10 @@ app.post('/api/auth/login', async (req, res) => {
     
     res.json({
       token,
-      user: userWithoutPassword
+      user: {
+        ...userWithoutPassword,
+        username: userUsername
+      }
     });
   } catch (err) {
     console.error('[Login Error]', err);
