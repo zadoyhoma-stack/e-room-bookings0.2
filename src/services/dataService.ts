@@ -151,6 +151,20 @@ async function tryFetch<T>(url: string, options?: RequestInit): Promise<T | null
     };
 
     const res = await fetch(API_BASE_URL + finalUrl, finalOptions);
+    if (res.status === 429) {
+      try {
+        const errJson = await res.json();
+        const Swal = (await import('sweetalert2')).default;
+        Swal.fire({
+          title: '🛡️ กาก ยิงไม่เข้าหรอกครับ!',
+          text: errJson.error || 'ระบบตรวจพบการยิงเซิร์ฟเวอร์จาก IP ของคุณ! โดนบล็อกเรียบร้อย 1 นาที 😎',
+          icon: 'error',
+          confirmButtonText: 'ยอมแพ้แล้ว',
+          confirmButtonColor: '#ef4444'
+        });
+      } catch { /* ignore */ }
+      return null;
+    }
     if (!res.ok) return null;
     return await res.json();
   } catch {
@@ -289,7 +303,17 @@ export async function createBooking(bookingData: Omit<Booking, "id" | "status">)
     }
     return apiResult;
   } else {
-    const err = await res.json();
+    const err = await res.json().catch(() => ({ error: "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์" }));
+    if (res.status === 429) {
+      const Swal = (await import('sweetalert2')).default;
+      Swal.fire({
+        title: '🛡️ กาก ยิงไม่เข้าหรอกครับ!',
+        text: err.error || 'ระบบตรวจพบการยิงเซิร์ฟเวอร์จาก IP ของคุณ! โดนบล็อกเรียบร้อย 1 นาที 😎',
+        icon: 'error',
+        confirmButtonText: 'ยอมแพ้แล้ว',
+        confirmButtonColor: '#ef4444'
+      });
+    }
     throw new Error(err.error || "เกิดข้อผิดพลาดจากเซิร์ฟเวอร์");
   }
 }
