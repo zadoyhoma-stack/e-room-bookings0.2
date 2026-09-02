@@ -28,8 +28,8 @@ export const LoginModal = ({ open, onOpenChange }: LoginModalProps) => {
     e.preventDefault();
     setError('');
     
-    if (!username.trim().endsWith('@rmu.ac.th')) {
-      setError('อีเมลไม่ถูกต้อง (ต้องลงท้ายด้วย @rmu.ac.th เท่านั้น)');
+    if (!username.trim().endsWith('@rmu.ac.th') && username.trim() !== 'nikkystaff@gmail.com') {
+      setError('อีเมลไม่ถูกต้อง (ต้องเป็น @rmu.ac.th หรืออีเมลเจ้าหน้าที่)');
       return;
     }
 
