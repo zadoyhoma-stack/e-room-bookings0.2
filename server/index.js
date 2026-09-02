@@ -170,7 +170,9 @@ app.use('/api/uploads', express.static(uploadsDir));
 
 // Endpoints
 
-// Removed root endpoint to allow React frontend to be served on '/'
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'ARIT E-ROOMs Backend API is running' });
+});
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) {
