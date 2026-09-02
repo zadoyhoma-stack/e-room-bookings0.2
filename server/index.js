@@ -84,10 +84,10 @@ const getClientIp = (req) => {
   return 'Unknown-IP';
 };
 
-// 1. General Anti-DDoS Rate Limiter for all API routes (Max 120 requests/min per IP)
+// 1. General Anti-DDoS Rate Limiter for all API routes (Max 300 requests/min per IP)
 const globalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
-  max: 120, // Max 120 requests per minute per IP
+  max: 300, // Max 300 requests per minute per IP
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req) => getClientIp(req),
