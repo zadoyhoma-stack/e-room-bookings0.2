@@ -11,10 +11,15 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import nodemailer from 'nodemailer';
+import rateLimit from 'express-rate-limit';
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
+// Trust reverse proxy (Render, Vercel, Cloudflare)
+app.set('trust proxy', 1);
+
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
   cors: {
@@ -58,6 +63,43 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// ==================== Anti-DDoS & Rate Limiting System ====================
+// 1. General Anti-DDoS Rate Limiter for all API routes (Max 120 requests/min per IP)
+const globalLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 120, // Max 120 requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.status(429).json({
+      error: '🛡️ [Anti-DDoS Active] ตรวจพบการส่ง Request ถี่ผิดปกติ ระบบได้บล็อกการเชื่อมต่อชั่วคราวเป็นเวลา 1 นาทีเพื่อความปลอดภัย'
+    });
+  }
+});
+
+// 2. Strict Rate Limiter for Mutations (Booking, Auth, Reporting) (Max 30 requests/min per IP)
+const strictMutationLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 30, // Max 30 requests per minute per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: (req, res) => {
+    res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.status(429).json({
+      error: '🛡️ [Spam Protection] คุณส่งคำขอจองหรือเข้าสู่ระบบถี่เกินไป กรุณารอ 1 นาทีแล้วลองใหม่อีกครั้ง'
+    });
+  }
+});
+
+app.use('/api/', globalLimiter);
+app.post('/api/bookings', strictMutationLimiter);
+app.post('/api/login', strictMutationLimiter);
+app.post('/api/problems', strictMutationLimiter);
+app.post('/api/evaluations', strictMutationLimiter);
 
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
