@@ -84,36 +84,11 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
       }
     }
 
-    // ตรวจสอบว่าช่วงเวลานี้ผ่านไปแล้วในวันปัจจุบันหรือไม่
-    if (realTimeDate && selectedDateStr === realTimeDate && realTimeHH) {
-      const [slotH, slotM] = time.split(':').map(Number);
-      const slotEndMins = (slotH + 1) * 60 + slotM;
-      const [nowH, nowM] = realTimeHH.split(':').map(Number);
-      const nowMins = nowH * 60 + nowM;
-      if (slotEndMins <= nowMins) {
-        return { status: 'past', label: 'ผ่านไปแล้ว' };
-      }
-    }
-
     return { status: 'available', label: 'ว่าง' };
   };
 
   return (
     <div id="booking-scheduler" className="flex flex-col gap-4 mt-2">
-      {realTimeDate && selectedDateStr === realTimeDate && realTimeHH && realTimeHH >= '15:00' && (
-        <div className="bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-400/40 backdrop-blur-md text-amber-100 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md animate-in fade-in slide-in-from-top-2">
-          <div className="flex items-center gap-3">
-            <div className="p-2 bg-amber-500/30 rounded-xl shrink-0">
-              <Clock className="w-5 h-5 text-amber-300" />
-            </div>
-            <div>
-              <p className="text-sm font-bold text-white">ขณะนี้เลยเวลาทำการของวันนี้แล้ว (08:00 - 15:30 น.)</p>
-              <p className="text-xs text-amber-200/90 mt-0.5">ทุกช่วงเวลาสำหรับวันนี้ผ่านไปแล้ว คุณสามารถเลือกวันที่ถัดไปที่ต้องการจองจากเมนูด้านบนได้เลยครับ</p>
-            </div>
-          </div>
-        </div>
-      )}
-
       {rooms.map(room => (
         <div key={room.id} className="group w-full">
           {/* Main Card (Header) */}

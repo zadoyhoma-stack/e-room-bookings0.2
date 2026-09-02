@@ -456,10 +456,9 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น' });
     }
 
-    // === Validation 3: No Past Dates/Times (Thai Timezone) ===
+    // === Validation 3: No Past Dates (Thai Timezone) ===
     const today = getThaiDateStr();
-    const currentTime = getThaiTimeStr();
-    if (date < today || (date === today && endTime <= currentTime)) {
+    if (date < today) {
       return res.status(400).json({ error: 'ไม่สามารถจองเวลาย้อนหลังได้' });
     }
 
