@@ -197,36 +197,6 @@ const Index = () => {
   const [reportProblemOpen, setReportProblemOpen] = useState(false);
   const [reportSuccessOpen, setReportSuccessOpen] = useState(false);
 
-  // ===== Exit Intent / ปิดเว็บ → เด้งแบบประเมินก่อนออกจากเว็บ =====
-  useEffect(() => {
-    const handleMouseLeave = (e: MouseEvent) => {
-      // เมื่อเมาส์เลื่อนออกไปทางขอบบน (จะกดกากบาท/ปิดแท็บ/เปลี่ยนแท็บ)
-      if (e.clientY <= 0) {
-        const hasEvaluated = sessionStorage.getItem('arit_evaluated') === 'true';
-        if (!hasEvaluated) {
-          setEvaluationOpen(true);
-        }
-      }
-    };
-
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      const hasEvaluated = sessionStorage.getItem('arit_evaluated') === 'true';
-      if (!hasEvaluated) {
-        e.preventDefault();
-        e.returnValue = 'กรุณาประเมินความพึงพอใจการใช้งานก่อนออกจากเว็บ';
-        return e.returnValue;
-      }
-    };
-
-    document.addEventListener('mouseleave', handleMouseLeave);
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      document.removeEventListener('mouseleave', handleMouseLeave);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, []);
-
   // ===== Data Service — sync data across tabs/components =====
   useEffect(() => {
     // Initial data load
@@ -425,11 +395,18 @@ const Index = () => {
           
           Swal.default.fire({
             title: 'ส่งคำขอสำเร็จ!',
-            text: `${bookingRoom.name} — รออนุมัติ`,
+            text: `${bookingRoom.name} — รอการอนุมัติจากเจ้าหน้าที่`,
             icon: 'success',
-            timer: 2000,
-            showConfirmButton: false
-          }).then(() => {
+            showCancelButton: true,
+            confirmButtonText: '⭐ ประเมินความพึงพอใจ',
+            cancelButtonText: 'ตกลง',
+            confirmButtonColor: '#3b82f6',
+            cancelButtonColor: '#94a3b8',
+            reverseButtons: true
+          }).then((res) => {
+            if (res.isConfirmed) {
+              setEvaluationOpen(true);
+            }
             setTimeout(() => document.getElementById('my-bookings')?.scrollIntoView({ behavior: 'smooth' }), 300);
           });
         })
