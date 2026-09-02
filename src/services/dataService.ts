@@ -60,6 +60,15 @@ function writeLocal<T>(key: string, data: T): void {
   }
 }
 
+/** Write to localStorage quietly without dispatching events (prevents infinite fetch loops during GET queries) */
+function writeLocalQuietly<T>(key: string, data: T): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(data));
+  } catch (error) {
+    console.error(`Failed to write to localStorage for key ${key}:`, error);
+  }
+}
+
 // ==================== Socket.IO for Cross-Device Sync ====================
 let socket: ReturnType<typeof io> | null = null;
 try {
@@ -190,10 +199,10 @@ export async function getRooms(): Promise<Room[]> {
         headers: getAuthHeaders({ "Content-Type": "application/json" }),
         body: JSON.stringify(localData)
       });
-      writeLocal(KEYS.rooms, localData);
+      writeLocalQuietly(KEYS.rooms, localData);
       return localData;
     }
-    writeLocal(KEYS.rooms, apiData);
+    writeLocalQuietly(KEYS.rooms, apiData);
     return apiData;
   }
   return readLocal<Room[]>(KEYS.rooms, mockRooms);
@@ -218,7 +227,7 @@ function autoExpireLocalBookings(bookings: Booking[]): Booking[] {
   });
 
   if (changed) {
-    writeLocal(KEYS.bookings, updated);
+    writeLocalQuietly(KEYS.bookings, updated);
   }
   return updated;
 }
@@ -227,7 +236,7 @@ export async function getBookings(): Promise<Booking[]> {
   const apiData = await tryFetch<Booking[]>("/api/bookings");
   if (apiData) {
     const expired = autoExpireLocalBookings(apiData);
-    writeLocal(KEYS.bookings, expired);
+    writeLocalQuietly(KEYS.bookings, expired);
     return expired;
   }
   const localData = readLocal<Booking[]>(KEYS.bookings, []);
@@ -237,7 +246,7 @@ export async function getBookings(): Promise<Booking[]> {
 export async function getProblems(): Promise<Problem[]> {
   const apiData = await tryFetch<Problem[]>("/api/problems");
   if (apiData) {
-    writeLocal(KEYS.problems, apiData);
+    writeLocalQuietly(KEYS.problems, apiData);
     return apiData;
   }
   return readLocal<Problem[]>(KEYS.problems, []);
@@ -246,7 +255,7 @@ export async function getProblems(): Promise<Problem[]> {
 export async function getEvaluations(): Promise<Evaluation[]> {
   const apiData = await tryFetch<Evaluation[]>("/api/evaluations");
   if (apiData) {
-    writeLocal(KEYS.evaluations, apiData);
+    writeLocalQuietly(KEYS.evaluations, apiData);
     return apiData;
   }
   return readLocal<Evaluation[]>(KEYS.evaluations, []);
@@ -255,7 +264,7 @@ export async function getEvaluations(): Promise<Evaluation[]> {
 export async function getUsers(): Promise<any[]> {
   const apiData = await tryFetch<any[]>("/api/users");
   if (apiData) {
-    writeLocal(KEYS.users, apiData);
+    writeLocalQuietly(KEYS.users, apiData);
     return apiData;
   }
   return readLocal<any[]>(KEYS.users, []);
