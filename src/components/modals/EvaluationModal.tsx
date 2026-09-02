@@ -28,6 +28,7 @@ export const EvaluationModal = ({ open, onOpenChange }: EvaluationModalProps) =>
 
     try {
       await ds.createEvaluation({ rating, feedback });
+      sessionStorage.setItem('arit_evaluated', 'true');
       toast({ title: "ขอบคุณสำหรับการประเมิน", description: "ข้อมูลของคุณจะถูกนำไปพัฒนาต่อไป" });
       setRating(0);
       setHovered(0);

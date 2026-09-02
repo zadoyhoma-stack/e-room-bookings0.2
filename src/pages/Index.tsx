@@ -75,7 +75,7 @@ const checkTimeOverlap = (
   return bookings.find(b => {
     if (b.roomId !== roomId) return false;
     if (b.date !== date) return false;
-    if (b.status === 'rejected' || b.status === 'cancelled') return false;
+    if (b.status !== 'pending' && b.status !== 'approved') return false;
     if (excludeBookingId && b.id === excludeBookingId) return false;
 
     const sStart = timeToMinutes(startTime);
@@ -196,6 +196,36 @@ const Index = () => {
   const [viewEvaluationsOpen, setViewEvaluationsOpen] = useState(false);
   const [reportProblemOpen, setReportProblemOpen] = useState(false);
   const [reportSuccessOpen, setReportSuccessOpen] = useState(false);
+
+  // ===== Exit Intent / ปิดเว็บ → เด้งแบบประเมินก่อนออกจากเว็บ =====
+  useEffect(() => {
+    const handleMouseLeave = (e: MouseEvent) => {
+      // เมื่อเมาส์เลื่อนออกไปทางขอบบน (จะกดกากบาท/ปิดแท็บ/เปลี่ยนแท็บ)
+      if (e.clientY <= 0) {
+        const hasEvaluated = sessionStorage.getItem('arit_evaluated') === 'true';
+        if (!hasEvaluated) {
+          setEvaluationOpen(true);
+        }
+      }
+    };
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      const hasEvaluated = sessionStorage.getItem('arit_evaluated') === 'true';
+      if (!hasEvaluated) {
+        e.preventDefault();
+        e.returnValue = 'กรุณาประเมินความพึงพอใจการใช้งานก่อนออกจากเว็บ';
+        return e.returnValue;
+      }
+    };
+
+    document.addEventListener('mouseleave', handleMouseLeave);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
 
   // ===== Data Service — sync data across tabs/components =====
   useEffect(() => {
@@ -401,14 +431,6 @@ const Index = () => {
             showConfirmButton: false
           }).then(() => {
             setTimeout(() => document.getElementById('my-bookings')?.scrollIntoView({ behavior: 'smooth' }), 300);
-            
-            setTimeout(() => {
-              setEvaluationOpen(true);
-              toast({
-                title: "ช่วยประเมินระบบให้เราหน่อยนะ! ⭐",
-                description: "ใช้เวลาแค่แป๊บเดียว เพื่อการปรับปรุงระบบให้ดียิ่งขึ้น",
-              });
-            }, 2000);
           });
         })
         .catch(err => {

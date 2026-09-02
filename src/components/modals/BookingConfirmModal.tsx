@@ -122,26 +122,15 @@ export const BookingConfirmModal = ({
     return bookings.some(b => {
       if (b.roomId !== room.id) return false;
       if (b.date !== submitDate) return false;
-      if (b.status === 'rejected' || b.status === 'cancelled') return false;
-      
-      const now = new Date();
-      if (submitDate === format(now, 'yyyy-MM-dd')) {
-        const currentMins = now.getHours() * 60 + now.getMinutes();
-        const endMins = timeToMins(b.endTime);
-        if (currentMins >= endMins) return false;
-      }
+      if (b.status !== 'pending' && b.status !== 'approved') return false;
       
       const sStart = timeToMins(editStartTime);
       const sEnd = timeToMins(editEndTime);
       const bStart = timeToMins(b.startTime);
       const bEnd = timeToMins(b.endTime);
       
-      return (
-        (sStart >= bStart && sStart < bEnd) ||
-        (sEnd > bStart && sEnd <= bEnd) ||
-        (sStart <= bStart && sEnd >= bEnd) ||
-        (bStart >= sStart && bStart < sEnd)
-      );
+      // Standard interval overlap formula: start1 < end2 AND end1 > start2
+      return sStart < bEnd && sEnd > bStart;
     });
   }, [room, bookings, editDate, editStartTime, editEndTime, open]);
 

@@ -57,15 +57,14 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
     }
 
     const roomBookings = bookingsByRoom[room.id] || [];
-    // กรองเฉพาะ Booking ที่ "ล็อกห้อง" — pending + approved + completed
+    // กรองเฉพาะ Booking ที่แอคทีฟ — pending + approved
     const activeBookings = roomBookings.filter(b => 
-      b.status === 'pending' || b.status === 'approved' || b.status === 'completed'
+      b.status === 'pending' || b.status === 'approved'
     );
     
     const booking = activeBookings.find(b => {
       const [slotH, slotM] = time.split(':').map(Number);
       const slotStart = slotH * 60 + slotM;
-      // Default slot duration is 1 hour for the grid blocks
       const slotEnd = (slotH + 1) * 60 + slotM;
 
       const [bStartH, bStartM] = (b.startTime || '00:00').split(':').map(Number);
@@ -73,16 +72,26 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
       const [bEndH, bEndM] = (b.endTime || '00:00').split(':').map(Number);
       const bEnd = bEndH * 60 + bEndM;
 
-      // กฎเวลาทับซ้อน: slotStart < b.endTime AND slotEnd > b.startTime
       return slotStart < bEnd && slotEnd > bStart;
     });
 
     if (booking) {
-      if (booking.status === 'approved' || booking.status === 'completed') {
+      if (booking.status === 'approved') {
         return { status: 'booked', label: 'จองแล้ว' };
       }
       if (booking.status === 'pending') {
         return { status: 'pending', label: 'รออนุมัติ' };
+      }
+    }
+
+    // ตรวจสอบว่าช่วงเวลานี้ผ่านไปแล้วในวันปัจจุบันหรือไม่
+    if (realTimeDate && selectedDateStr === realTimeDate && realTimeHH) {
+      const [slotH, slotM] = time.split(':').map(Number);
+      const slotEndMins = (slotH + 1) * 60 + slotM;
+      const [nowH, nowM] = realTimeHH.split(':').map(Number);
+      const nowMins = nowH * 60 + nowM;
+      if (slotEndMins <= nowMins) {
+        return { status: 'maintenance', label: 'ผ่านไปแล้ว' };
       }
     }
 

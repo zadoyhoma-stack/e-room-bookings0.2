@@ -189,13 +189,38 @@ export async function getRooms(): Promise<Room[]> {
   return readLocal<Room[]>(KEYS.rooms, mockRooms);
 }
 
+function autoExpireLocalBookings(bookings: Booking[]): Booking[] {
+  if (!bookings || bookings.length === 0) return bookings;
+  const now = new Date();
+  const currentDate = now.toISOString().split('T')[0];
+  const currentHour = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  let changed = false;
+
+  const updated = bookings.map(b => {
+    if (b.status === 'pending' || b.status === 'approved') {
+      if (b.date < currentDate || (b.date === currentDate && b.endTime <= currentHour)) {
+        changed = true;
+        return { ...b, status: 'completed' as const };
+      }
+    }
+    return b;
+  });
+
+  if (changed) {
+    writeLocal(KEYS.bookings, updated);
+  }
+  return updated;
+}
+
 export async function getBookings(): Promise<Booking[]> {
   const apiData = await tryFetch<Booking[]>("/api/bookings");
   if (apiData) {
-    writeLocal(KEYS.bookings, apiData);
-    return apiData;
+    const expired = autoExpireLocalBookings(apiData);
+    writeLocal(KEYS.bookings, expired);
+    return expired;
   }
-  return readLocal<Booking[]>(KEYS.bookings, []);
+  const localData = readLocal<Booking[]>(KEYS.bookings, []);
+  return autoExpireLocalBookings(localData);
 }
 
 export async function getProblems(): Promise<Problem[]> {

@@ -363,11 +363,44 @@ app.post('/api/rooms/seed', verifyToken, verifyAdmin, async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
-});
+// ==================== Auto Expire Helper ====================
+async function autoExpireBookings() {
+  try {
+    const currentDate = getThaiDateStr();
+    const currentHour = getThaiTimeStr();
+
+    const expiredBookings = await prisma.booking.findMany({
+      where: {
+        status: { in: ['pending', 'approved'] },
+        OR: [
+          { date: { lt: currentDate } },
+          { date: currentDate, endTime: { lte: currentHour } }
+        ]
+      }
+    });
+
+    if (expiredBookings.length > 0) {
+      for (const booking of expiredBookings) {
+        const updated = await prisma.booking.update({
+          where: { id: booking.id },
+          data: { status: 'completed' }
+        });
+        io.emit('update_booking', updated);
+      }
+      console.log(`[Auto-Expire] Updated ${expiredBookings.length} expired bookings at ${currentDate} ${currentHour}`);
+    }
+  } catch (err) {
+    console.error('[Auto-Expire Error]', err);
+  }
+}
+
+// Call once on startup
+autoExpireBookings();
 
 // Bookings
 app.get('/api/bookings', async (req, res) => {
   try {
+    await autoExpireBookings();
     const bookings = await prisma.booking.findMany({
       orderBy: { date: 'desc' },
       include: { 
@@ -423,9 +456,10 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น' });
     }
 
-    // === Validation 3: No Past Dates (Thai Timezone) ===
+    // === Validation 3: No Past Dates/Times (Thai Timezone) ===
     const today = getThaiDateStr();
-    if (date < today) {
+    const currentTime = getThaiTimeStr();
+    if (date < today || (date === today && endTime <= currentTime)) {
       return res.status(400).json({ error: 'ไม่สามารถจองเวลาย้อนหลังได้' });
     }
 
@@ -472,28 +506,30 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
       return res.status(409).json({ error: 'คุณได้ส่งคำขอจองนี้ไปแล้ว กรุณารอการอนุมัติ' });
     }
 
-    // === Validation 7: Booking Limit (Max 2 per day per user) ===
-    const todayBookingsCount = await prisma.booking.count({
-      where: {
-        userId: actualUserId,
-        date: date,
-        status: { in: ['pending', 'approved'] }
+    // === Validation 7: Booking Limit (Max 2 per day per user, except Admin/Staff) ===
+    if (req.user.role !== 'admin' && req.user.role !== 'staff') {
+      const todayBookingsCount = await prisma.booking.count({
+        where: {
+          userId: actualUserId,
+          date: date,
+          status: { in: ['pending', 'approved'] }
+        }
+      });
+      if (todayBookingsCount >= 2) {
+        logSystemEvent(`BOOKING_LIMIT_REACHED: ${actualUserId} จองเกิน 2 ครั้งในวันที่ ${date}`, requesterInfo, 'booking');
+        return res.status(400).json({ error: 'คุณจองห้องครบสิทธิ์ 2 ครั้งต่อวันแล้วครับ' });
       }
-    });
-    if (todayBookingsCount >= 2) {
-      logSystemEvent(`BOOKING_LIMIT_REACHED: ${actualUserId} จองเกิน 2 ครั้งในวันที่ ${date}`, requesterInfo, 'booking');
-      return res.status(400).json({ error: 'คุณจองห้องครบสิทธิ์ 2 ครั้งต่อวันแล้วครับ' });
     }
 
     // === Create User if not exists ===
-    const actualUserName = req.user.username || userName || 'ผู้ใช้ทั่วไป';
+    const actualUserName = userName || req.user.username || 'ผู้ใช้ทั่วไป';
     const user = await prisma.user.upsert({
       where: { id: actualUserId },
-      update: { name: userName || 'ผู้ใช้ทั่วไป' },
+      update: {},
       create: {
         id: actualUserId,
-        name: userName || 'ผู้ใช้ทั่วไป',
-        email: `${actualUserId}@placeholder.com`,
+        name: actualUserName,
+        email: req.user.email || `${actualUserId}@placeholder.com`,
       }
     });
 
@@ -847,35 +883,7 @@ app.post('/api/reports', verifyToken, verifyAdminOrStaff, async (req, res) => {
 });
 
 // Auto-expire bookings every 30s (using Thai Timezone)
-setInterval(async () => {
-  try {
-    const currentDate = getThaiDateStr();
-    const currentHour = getThaiTimeStr();
-
-    const expiredBookings = await prisma.booking.findMany({
-      where: {
-        status: { in: ['pending', 'approved'] },
-        OR: [
-          { date: { lt: currentDate } },
-          { date: currentDate, endTime: { lte: currentHour } }
-        ]
-      }
-    });
-
-    if (expiredBookings.length > 0) {
-      for (const booking of expiredBookings) {
-        const updated = await prisma.booking.update({
-          where: { id: booking.id },
-          data: { status: 'completed' }
-        });
-        io.emit('update_booking', updated);
-      }
-      console.log(`[Auto-Expire] Updated ${expiredBookings.length} expired bookings at ${currentDate} ${currentHour}`);
-    }
-  } catch (err) {
-    console.error('[Auto-Expire Error]', err);
-  }
-}, 30000);
+setInterval(autoExpireBookings, 30000);
 
 // ==================== Auto LINE Reminder (15 Mins Before) ====================
 const notifiedReminders = new Set();
