@@ -368,7 +368,7 @@ app.post('/api/auth/google', async (req, res) => {
 
   } catch (err) {
     console.error('[Google Auth Error]', err);
-    res.status(500).json({ error: 'การยืนยันตัวตนกับ Google ล้มเหลว' });
+    res.status(500).json({ error: 'การยืนยันตัวตนกับ Google ล้มเหลว: ' + err.message });
   }
 });
 
