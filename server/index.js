@@ -64,7 +64,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// ==================== Anti-DDoS & Rate Limiting System ====================
+// ==================== Anti-DDoS & IP Tracker System ====================
+const blockedAttackerIps = new Map();
+
+const getClientIp = (req) => {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (forwarded) {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.ip || req.socket.remoteAddress || 'Unknown IP';
+};
+
 // 1. General Anti-DDoS Rate Limiter for all API routes (Max 120 requests/min per IP)
 const globalLimiter = rateLimit({
   windowMs: 1 * 60 * 1000, // 1 minute
@@ -72,10 +82,19 @@ const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
+    const ip = getClientIp(req);
+    const prev = blockedAttackerIps.get(ip) || { count: 0, firstBlocked: new Date() };
+    blockedAttackerIps.set(ip, { count: prev.count + 1, firstBlocked: prev.firstBlocked, lastAttempt: new Date(), targetUrl: req.originalUrl });
+
+    console.warn(`[🚨 ATTACK BLOCKED] IP: ${ip} attempted DDoS on ${req.originalUrl} (Total Blocked Requests: ${prev.count + 1})`);
+
     res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.status(429).json({
-      error: '🛡️ [Anti-DDoS Active] ตรวจพบการส่ง Request ถี่ผิดปกติ ระบบได้บล็อกการเชื่อมต่อชั่วคราวเป็นเวลา 1 นาทีเพื่อความปลอดภัย'
+      error: `🛡️ [Anti-DDoS Active] ตรวจพบการพยายามยิงเซิร์ฟเวอร์จาก IP: ${ip}! บอกเลยว่ากากๆ ยิงไม่เข้าหรอกครับ 😎 โดนบล็อกเรียบร้อย 1 นาที!`,
+      ip: ip,
+      status: 'BLOCKED_BY_ANTIDDOS',
+      retryAfter: '60 Seconds'
     });
   }
 });
@@ -87,10 +106,15 @@ const strictMutationLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   handler: (req, res) => {
+    const ip = getClientIp(req);
+    console.warn(`[🚨 SPAM BLOCKED] IP: ${ip} attempted mutation spam on ${req.originalUrl}`);
+
     res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
     res.header('Access-Control-Allow-Credentials', 'true');
     res.status(429).json({
-      error: '🛡️ [Spam Protection] คุณส่งคำขอจองหรือเข้าสู่ระบบถี่เกินไป กรุณารอ 1 นาทีแล้วลองใหม่อีกครั้ง'
+      error: `🛡️ [Spam Protection] IP: ${ip} ส่งคำขอถี่เกินไป! บอกเลยว่ากากๆ ยิงไม่เข้าหรอกครับ 😎 รอก่อน 1 นาทีนะครับ`,
+      ip: ip,
+      status: 'SPAM_BLOCKED'
     });
   }
 });
@@ -100,6 +124,18 @@ app.post('/api/bookings', strictMutationLimiter);
 app.post('/api/login', strictMutationLimiter);
 app.post('/api/problems', strictMutationLimiter);
 app.post('/api/evaluations', strictMutationLimiter);
+
+// Endpoint to view blocked IP attack log
+app.get('/api/admin/blocked-ips', (req, res) => {
+  const list = Array.from(blockedAttackerIps.entries()).map(([ip, data]) => ({
+    ip,
+    totalBlockedRequests: data.count,
+    firstBlocked: data.firstBlocked,
+    lastAttempt: data.lastAttempt,
+    targetUrl: data.targetUrl
+  }));
+  res.json(list);
+});
 
 const uploadsDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
