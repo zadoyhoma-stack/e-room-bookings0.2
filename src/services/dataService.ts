@@ -63,7 +63,16 @@ function writeLocal<T>(key: string, data: T): void {
 // ==================== Socket.IO for Cross-Device Sync ====================
 let socket: ReturnType<typeof io> | null = null;
 try {
-  socket = io(API_BASE_URL); // Automatically connects to the host (proxied to backend)
+  const targetServerUrl = API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  if (targetServerUrl) {
+    socket = io(targetServerUrl, {
+      transports: ['websocket', 'polling'],
+      reconnectionDelay: 3000,
+      reconnectionDelayMax: 15000,
+      reconnectionAttempts: 10,
+      timeout: 10000,
+    });
+  }
   
   socket.on('new_booking', (booking: Booking) => {
     const bookings = readLocal<Booking[]>(KEYS.bookings, []);
