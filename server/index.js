@@ -12,6 +12,7 @@ import jwt from 'jsonwebtoken';
 import { OAuth2Client } from 'google-auth-library';
 import nodemailer from 'nodemailer';
 import rateLimit from 'express-rate-limit';
+import { createClient } from '@supabase/supabase-js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,6 +34,15 @@ const io = new Server(httpServer, {
 });
 const PORT = process.env.PORT || 5000;
 const prisma = new PrismaClient();
+
+const SUPABASE_URL = process.env.SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.SUPABASE_KEY || '';
+let supabaseStorage;
+if (SUPABASE_URL && SUPABASE_KEY) {
+  supabaseStorage = createClient(SUPABASE_URL, SUPABASE_KEY);
+} else {
+  console.warn('Missing SUPABASE_URL or SUPABASE_KEY. Supabase Storage upload will fail.');
+}
 
 const corsOptions = {
   origin: true,
@@ -150,23 +160,8 @@ app.get('/api/admin/blocked-ips', (req, res) => {
   res.json(list);
 });
 
-const uploadsDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadsDir)) {
-  fs.mkdirSync(uploadsDir);
-}
-
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadsDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
-  }
-});
+const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
-
-app.use('/api/uploads', express.static(uploadsDir));
 
 // Endpoints
 
@@ -174,11 +169,44 @@ app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'ARIT E-ROOMs Backend API is running' });
 });
 
-app.post('/api/upload', upload.single('file'), (req, res) => {
+app.post('/api/upload', upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
-  res.json({ url: `/api/uploads/${req.file.filename}` });
+  
+  if (!supabaseStorage) {
+    return res.status(500).json({ error: 'Supabase Storage is not configured' });
+  }
+
+  try {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    // Sanitize file name to avoid weird characters
+    const safeName = req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '');
+    const fileName = `${uniqueSuffix}-${safeName}`;
+
+    const { data, error } = await supabaseStorage
+      .storage
+      .from('uploads')
+      .upload(fileName, req.file.buffer, {
+        contentType: req.file.mimetype,
+        upsert: false
+      });
+
+    if (error) {
+      console.error('Supabase Storage Error:', error);
+      return res.status(500).json({ error: 'Failed to upload to Supabase' });
+    }
+
+    const { data: publicUrlData } = supabaseStorage
+      .storage
+      .from('uploads')
+      .getPublicUrl(fileName);
+
+    res.json({ url: publicUrlData.publicUrl });
+  } catch (err) {
+    console.error('Upload error:', err);
+    res.status(500).json({ error: 'Internal server error during upload' });
+  }
 });
 
 // Auth
