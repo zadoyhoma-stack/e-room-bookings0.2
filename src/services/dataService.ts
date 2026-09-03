@@ -12,7 +12,7 @@
 import { mockRooms, Room, Booking, Problem, Evaluation } from "@/data/mockData";
 import { io } from "socket.io-client";
 
-const API_BASE_URL = 'https://e-room-bookings0-2.onrender.com';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 // ==================== Storage Keys ====================
 const KEYS = {
