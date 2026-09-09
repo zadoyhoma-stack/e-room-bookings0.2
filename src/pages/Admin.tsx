@@ -45,7 +45,8 @@ const Admin = () => {
     { name: "จัดการผู้ใช้งาน", path: "/admin/users", icon: Users, hide: !isAdmin, badge: 0 },
     { name: "จัดการปัญหา", path: "/admin/problems", icon: AlertTriangle, badge: 0 },
     { name: "ผลการประเมิน", path: "/admin/evaluations", icon: Star, badge: 0 },
-    { name: "รายงานและสถิติ", path: "/admin/reports", icon: BarChart3, badge: 0 },
+    { name: "ออกรายงาน", path: "/admin/reports", icon: BarChart3, badge: 0 },
+
     { name: "สถานะและประวัติ", path: "/admin/logs", icon: Activity, badge: 0 },
   ];
 

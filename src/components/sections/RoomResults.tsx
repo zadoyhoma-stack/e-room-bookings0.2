@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/shared/StatusBadge";
 import { EquipmentIcon } from "@/components/shared/EquipmentIcon";
 import { Button } from "@/components/ui/button";
 import { Users, MapPin, Eye, Send } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface RoomResultsProps {
   rooms: Room[];
@@ -22,10 +23,24 @@ export const RoomResults = ({ rooms, onViewDetails, onRequestBooking }: RoomResu
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {rooms.map(room => (
-          <GlassCard key={room.id} variant="strong" className="p-4 hover:-translate-y-1 hover:shadow-xl transition-all duration-300 flex flex-col glass-panel border-white/60">
+          <GlassCard 
+            key={room.id} 
+            variant="strong" 
+            className={cn(
+              "p-4 flex flex-col glass-panel border-white/60 transition-all duration-300",
+              room.status === 'available' 
+                ? "hover:-translate-y-1 hover:shadow-xl" 
+                : "bg-white border-gray-200 opacity-90 cursor-not-allowed filter grayscale-[30%]"
+            )}
+          >
             {/* Photo placeholder */}
-            <div className="h-36 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center mb-4">
-              <span className="text-4xl">🏢</span>
+            <div className={cn(
+              "h-36 rounded-xl flex items-center justify-center mb-4",
+              room.status === 'available' 
+                ? "bg-gradient-to-br from-blue-50 to-blue-100" 
+                : "bg-gray-100"
+            )}>
+              <span className={cn("text-4xl", room.status !== 'available' && "opacity-50")}>🏢</span>
             </div>
 
             <div className="flex items-start justify-between mb-2">

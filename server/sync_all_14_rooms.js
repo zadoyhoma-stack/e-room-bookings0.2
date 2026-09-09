@@ -1,89 +1,13 @@
-export type RoomStatus = 'available' | 'occupied' | 'maintenance';
-export type BookingStatus = 'pending' | 'approved' | 'rejected' | 'cancelled' | 'completed';
-export type ProblemStatus = 'pending' | 'resolved';
-export type ProblemUrgency = 'low' | 'medium' | 'high';
+import { PrismaClient } from '@prisma/client';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-export interface Room {
-  id: string;
-  name: string;
-  capacity: number;
-  equipment: string[];
-  status: RoomStatus;
-  location: string;
-  description: string;
-  rules: string[];
-  occupiedText?: string;
-  image?: string;
-  imageUrl?: string;
-}
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const prisma = new PrismaClient();
 
-export interface Booking {
-  id: string;
-  roomId: string;
-  roomName: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  topic: string;
-  notes: string;
-  status: BookingStatus;
-  participants: number;
-  userId?: string;
-  userName?: string;
-  phone?: string;
-  email?: string;
-  department?: string;
-  participantList?: string[];
-  extraEquipment?: string;
-  ipAddress?: string;
-}
-
-export interface Problem {
-  id: string;
-  roomId: string;
-  problemType: string;
-  details: string;
-  image?: string;
-  urgency: ProblemUrgency;
-  rating?: number;
-  status: ProblemStatus;
-  reportedAt: string;
-}
-
-export interface Evaluation {
-  id: string;
-  rating: number;
-  feedback: string;
-  submittedAt: string;
-}
-
-export interface TimeSlot {
-  time: string;
-  status: 'available' | 'booked';
-  bookingInfo?: string;
-}
-
-export const EQUIPMENT_LABELS: Record<string, string> = {
-  projector: 'โปรเจคเตอร์',
-  microphone: 'ไมโครโฟน',
-  tv: 'ทีวี/จอ',
-  powerstrip: 'ปลั๊กพ่วง',
-  wifi: 'Wi-Fi',
-  whiteboard: 'ไวท์บอร์ด',
-  videoconf: 'ระบบประชุมทางไกล',
-};
-
-export const STATUS_LABELS: Record<string, string> = {
-  available: 'ว่าง',
-  occupied: 'ไม่ว่าง',
-  maintenance: 'ปิดปรับปรุง',
-  pending: 'รออนุมัติ',
-  approved: 'อนุมัติ',
-  rejected: 'ปฏิเสธ',
-  cancelled: 'ยกเลิก',
-};
-
-export const mockRooms: Room[] = [
+const mockRooms = [
   {
     id: 'r1', name: 'ห้องประชุมอาเซียน (ASEAN)', capacity: 15,
     equipment: ['wifi', 'projector', 'tv', 'microphone', 'whiteboard'],
@@ -179,33 +103,34 @@ export const mockRooms: Room[] = [
     id: 'r14', name: 'ห้องกลุ่มย่อย ชั้น 3: ข้างบันได #1', capacity: 4,
     equipment: ['wifi', 'powerstrip'],
     status: 'available', location: 'ชั้น 3',
-    description: 'ห้องกลุ่มย่อยขนาดเล็กกะทัดรัด รองรับ 4 ท่าน ตั้งอยู่บริเวณข้างบันไดชั้น 3 เหมาะสำหรับนัดหมายสั้นๆ, ปรึกษาหารือ หรือทำงานกลุ่มย่อย บรรยากาศเป็นส่วนตัวและเงียบสงบ',
+    description: 'ห้องกลุ่มย่อยขนาดเล็กกะทัดรัด รองรับ 4 ท่าน ตั้งอยู่บริเวณข้างบันไดชั้น 3 เหมาะสำหรับนัดหมายสั้นๆ, ปรปรึกษาหารือ หรือทำงานกลุ่มย่อย บรรยากาศเป็นส่วนตัวและเงียบสงบ',
     rules: ['รักษาความสะอาดและความเป็นระเบียบ', 'ใช้เสียงเบาเพื่อไม่รบกวนผู้อื่น', 'ปิดไฟและแอร์เมื่อใช้งานเสร็จ'],
   },
 ];
 
-export const TIME_OPTIONS = [
-  '08:00', '08:30', '09:00', '09:30',
-  '10:00', '10:30', '11:00', '11:30',
-  '12:00', '12:30', '13:00', '13:30',
-  '14:00', '14:30', '15:00', '15:30',
-  '16:00', '16:30', '17:00', '17:30',
-  '18:00', '18:30', '19:00', '19:30'
-];
-
-export const PARTICIPANT_OPTIONS = [2, 4, 6, 8, 10, 15, 20, 30, 40, 50, 60, 80, 100];
-
-export const generateTodaySlots = (roomId: string): TimeSlot[] => {
-  const slots: TimeSlot[] = [];
-  const hours = ['10:00','11:00','12:00','13:00','14:00','15:00','16:00'];
-  const seed = roomId.charCodeAt(1);
-  hours.forEach((time, i) => {
-    const isBooked = (seed + i) % 3 === 0;
-    slots.push({
-      time,
-      status: isBooked ? 'booked' : 'available',
-      bookingInfo: isBooked ? 'ประชุมภายใน' : undefined,
+async function main() {
+  console.log('🚪 Upserting all 14 rooms into Prisma Supabase DB...');
+  for (const r of mockRooms) {
+    await prisma.room.upsert({
+      where: { id: r.id },
+      update: r,
+      create: r
     });
-  });
-  return slots;
-};
+  }
+
+  const count = await prisma.room.count();
+  console.log(`✅ Prisma DB now contains ${count} rooms.`);
+
+  // Sync to database.json as well
+  const dbPath = path.join(__dirname, 'database.json');
+  if (fs.existsSync(dbPath)) {
+    const data = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+    data.rooms = mockRooms;
+    fs.writeFileSync(dbPath, JSON.stringify(data, null, 2), 'utf8');
+    console.log('✅ Local database.json updated with all 14 rooms.');
+  }
+}
+
+main()
+  .catch((e) => console.error('❌ Error syncing rooms:', e))
+  .finally(() => prisma.$disconnect());

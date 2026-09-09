@@ -41,7 +41,7 @@ export const DashboardHeader = ({ onLoginClick, onProfileClick, onEvaluateClick,
           <div className="flex items-center gap-4">
             {/* Logo */}
             <div className="relative shrink-0 flex items-center justify-center w-[64px] h-[64px] sm:w-[112px] sm:h-[112px] hover:scale-105 transition-transform duration-300">
-              <img src="/ตรามหาลัย.png" alt="Logo" className="w-full h-full object-contain drop-shadow-xl" />
+              <img src="/university-logo.png" alt="Logo" className="w-full h-full object-contain drop-shadow-xl" />
             </div>
             <div className="flex flex-col justify-center ml-1 sm:ml-2 min-w-0">
               <span className="text-[20px] sm:text-[28px] leading-tight font-black tracking-tight text-white drop-shadow-md truncate">

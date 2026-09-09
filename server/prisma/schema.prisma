@@ -104,10 +104,15 @@ model SystemLog {
 
 model Report {
   id        String   @id @default(uuid())
-  date      String
+  date      String?
   type      String
   room      String
   status    String   @default("Generated")
   format    String   @default("PDF")
   createdAt DateTime @default(now())
+  adminId   String?
+  dateFrom  String?
+  dateTo    String?
+  filters   String?
+  fileName  String?
 }

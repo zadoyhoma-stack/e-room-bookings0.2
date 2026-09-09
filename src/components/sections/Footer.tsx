@@ -21,7 +21,7 @@ export const Footer = () => {
                 <div className="relative shrink-0 flex items-center justify-center">
                   <div className="absolute inset-0 bg-white/20 blur-xl rounded-full scale-125" />
                   <img
-                    src="/ตรามหาลัย.png"
+                    src="/university-logo.png"
                     alt="มหาวิทยาลัยราชภัฎมหาสารคาม"
                     className="relative h-16 w-auto object-contain drop-shadow-lg"
                   />

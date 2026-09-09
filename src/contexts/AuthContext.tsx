@@ -30,7 +30,7 @@ export interface AppUser {
 interface AuthContextType {
   currentUser: AppUser | null;  // ผู้ใช้ที่ล็อคอินอยู่ (null = ยังไม่ล็อคอิน)
   login: (username: string, password: string) => Promise<boolean>;  // ฟังก์ชันเข้าสู่ระบบ
-  loginWithGoogle: (credential: string) => Promise<{ success: boolean; error?: string }>; // ล็อคอินด้วย Google
+  loginWithGoogle: (credential: string) => Promise<{ success: boolean; user?: AppUser; error?: string }>; // ล็อคอินด้วย Google
   logout: () => void;           // ฟังก์ชันออกจากระบบ
   isAdmin: boolean;             // เป็นผู้ดูแลระบบหรือไม่
   isStaff: boolean;             // เป็นเจ้าหน้าที่หรือไม่
@@ -91,7 +91,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
     }
   };
 
-  const loginWithGoogle = async (credential: string): Promise<{ success: boolean; error?: string }> => {
+  const loginWithGoogle = async (credential: string): Promise<{ success: boolean; user?: AppUser; error?: string }> => {
     try {
       const res = await fetch(API_BASE_URL + '/api/auth/google', {
         method: 'POST',
@@ -104,7 +104,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
         setCurrentUser(data.user);
         sessionStorage.setItem('arit_user', JSON.stringify(data.user));
         sessionStorage.setItem('arit_token', data.token);
-        return { success: true };
+        return { success: true, user: data.user };
       } else {
         const err = await res.json();
         return { success: false, error: err.error || 'การเข้าสู่ระบบผิดพลาด' };

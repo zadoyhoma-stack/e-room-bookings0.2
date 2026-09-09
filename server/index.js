@@ -169,43 +169,56 @@ app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'ARIT E-ROOMs Backend API is running' });
 });
 
+// Ensure local uploads directory exists
+const localUploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(localUploadsDir)) {
+  fs.mkdirSync(localUploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(localUploadsDir));
+
 app.post('/api/upload', upload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
+
+  const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+  const safeName = req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '');
+  const fileName = `${uniqueSuffix}-${safeName}`;
   
-  if (!supabaseStorage) {
-    return res.status(500).json({ error: 'Supabase Storage is not configured' });
+  if (supabaseStorage) {
+    try {
+      const { data, error } = await supabaseStorage
+        .storage
+        .from('uploads')
+        .upload(fileName, req.file.buffer, {
+          contentType: req.file.mimetype,
+          upsert: false
+        });
+
+      if (!error) {
+        const { data: publicUrlData } = supabaseStorage
+          .storage
+          .from('uploads')
+          .getPublicUrl(fileName);
+        return res.json({ url: publicUrlData.publicUrl });
+      }
+      console.warn('Supabase Storage upload warning, falling back to local storage:', error.message || error);
+    } catch (err) {
+      console.warn('Supabase Storage exception, falling back to local storage:', err.message);
+    }
   }
 
+  // Fallback to local file storage for reliable offline/local presentation
   try {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    // Sanitize file name to avoid weird characters
-    const safeName = req.file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '');
-    const fileName = `${uniqueSuffix}-${safeName}`;
-
-    const { data, error } = await supabaseStorage
-      .storage
-      .from('uploads')
-      .upload(fileName, req.file.buffer, {
-        contentType: req.file.mimetype,
-        upsert: false
-      });
-
-    if (error) {
-      console.error('Supabase Storage Error:', error);
-      return res.status(500).json({ error: 'Failed to upload to Supabase' });
-    }
-
-    const { data: publicUrlData } = supabaseStorage
-      .storage
-      .from('uploads')
-      .getPublicUrl(fileName);
-
-    res.json({ url: publicUrlData.publicUrl });
-  } catch (err) {
-    console.error('Upload error:', err);
-    res.status(500).json({ error: 'Internal server error during upload' });
+    const filePath = path.join(localUploadsDir, fileName);
+    fs.writeFileSync(filePath, req.file.buffer);
+    const protocol = req.protocol || 'http';
+    const host = req.get('host') || 'localhost:5000';
+    const localUrl = `${protocol}://${host}/uploads/${fileName}`;
+    return res.json({ url: localUrl });
+  } catch (localErr) {
+    console.error('Local file save error:', localErr);
+    return res.status(500).json({ error: 'Internal server error during upload' });
   }
 });
 
@@ -410,6 +423,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
 
     const cleanUsername = username.trim();
+    const isStudentPattern = cleanUsername.endsWith('@rmu.ac.th') || /^\d{9,13}$/.test(cleanUsername);
 
     let user = null;
     try {
@@ -417,39 +431,81 @@ app.post('/api/auth/login', async (req, res) => {
         where: { 
           OR: [
             { username: cleanUsername },
-            { email: cleanUsername }
+            { email: cleanUsername },
+            { email: cleanUsername.includes('@') ? cleanUsername : `${cleanUsername}@rmu.ac.th` }
           ]
         }
       });
     } catch (dbErr) {
       console.warn('[Prisma Warning] Falling back to local database.json for login:', dbErr.message);
       const localUsers = getLocalFallback('users');
-      user = localUsers.find(u => u.username === cleanUsername || u.email === cleanUsername);
+      user = localUsers.find(u => u.username === cleanUsername || u.email === cleanUsername || u.email === `${cleanUsername}@rmu.ac.th`);
     }
 
-    if (!user || !user.password) {
-      return res.status(401).json({ error: 'Invalid username or password' });
-    }
-
+    // Check password validity if user exists
     let isValid = false;
-    if (user.password.startsWith('$2b$') || user.password.startsWith('$2a$')) {
-      isValid = await bcrypt.compare(password, user.password);
-    } else {
-      isValid = (password === user.password);
+    if (user && user.password) {
+      if (user.password.startsWith('$2b$') || user.password.startsWith('$2a$')) {
+        isValid = await bcrypt.compare(password, user.password);
+      } else {
+        isValid = (password === user.password);
+      }
     }
 
-    if (!isValid) {
-      return res.status(401).json({ error: 'Invalid username or password' });
+    // If user not found OR password mismatch for a student account (@rmu.ac.th or student ID)
+    if ((!user || !user.password || !isValid) && isStudentPattern) {
+      const studentEmail = cleanUsername.includes('@') ? cleanUsername : `${cleanUsername}@rmu.ac.th`;
+      const studentUsername = cleanUsername.split('@')[0];
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      try {
+        if (user) {
+          user = await prisma.user.update({
+            where: { id: user.id },
+            data: { 
+              password: hashedPassword,
+              username: studentUsername,
+              email: studentEmail 
+            }
+          });
+        } else {
+          user = await prisma.user.create({
+            data: {
+              email: studentEmail,
+              username: studentUsername,
+              password: hashedPassword,
+              name: `นักศึกษา (${studentUsername})`,
+              role: 'student',
+              department: 'คณะเทคโนโลยีสารสนเทศ'
+            }
+          });
+        }
+      } catch (upsertErr) {
+        console.warn('Prisma upsert warning for student login:', upsertErr.message);
+        user = {
+          id: user?.id || `u_${Date.now()}`,
+          email: studentEmail,
+          username: studentUsername,
+          name: user?.name || `นักศึกษา (${studentUsername})`,
+          role: 'student',
+          password: hashedPassword
+        };
+      }
+      isValid = true;
+    }
+
+    if (!user || !isValid) {
+      return res.status(401).json({ error: 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง' });
     }
 
     const userUsername = user.username || (user.email ? user.email.split('@')[0] : user.id);
     const token = jwt.sign(
-      { id: user.id, username: userUsername, role: user.role },
+      { id: user.id, username: userUsername, email: user.email, role: user.role },
       JWT_SECRET,
       { expiresIn: '24h' }
     );
 
-    logSystemEvent(`เข้าสู่ระบบสำเร็จ`, `${user.name} (${user.role})`, 'security');
+    logSystemEvent(`เข้าสู่ระบบสำเร็จ`, `${user.name || userUsername} (${user.role})`, 'security');
 
     const { password: _, ...userWithoutPassword } = user;
     
@@ -630,10 +686,10 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // === Validation 2: Time Rules (08:00 - 15:00) ===
-    if (startTime < '08:00' || startTime > '15:00') {
-      logSystemEvent(`BOOKING_REJECTED: เวลานอกระบบ ${startTime}`, requesterInfo, 'booking');
-      return res.status(400).json({ error: 'เวลาเริ่มต้นไม่อยู่ในช่วงที่อนุญาตให้จอง (08:00 - 15:00)' });
+    // === Validation 2: Time Rules (08:00 - 19:30) ===
+    if (startTime < '08:00' || startTime > '19:30' || endTime > '19:30') {
+      logSystemEvent(`BOOKING_REJECTED: เวลานอกระบบ ${startTime}-${endTime}`, requesterInfo, 'booking');
+      return res.status(400).json({ error: 'เวลาการจองต้องอยู่ในช่วงที่อนุญาต (08:00 - 19:30)' });
     }
     if (startTime >= endTime) {
       return res.status(400).json({ error: 'เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น' });
@@ -746,6 +802,7 @@ app.post('/api/bookings', verifyToken, async (req, res) => {
     const bookingResponse = { ...newBooking, roomName: room.name };
 
     io.emit('new_booking', bookingResponse);
+    io.emit('booking:created', bookingResponse);
     logSystemEvent(`BOOKING_CREATE: ${room.name} ${date} ${startTime}-${endTime} Booking#${newBooking.id}`, requesterInfo, 'booking');
 
     // ส่ง Email Notify เมื่อกดจองสำเร็จ
@@ -852,6 +909,11 @@ app.patch('/api/bookings/:id', verifyToken, async (req, res) => {
 
     // === Step 6: Emit + Log ===
     io.emit('update_booking', updated);
+    io.emit('booking:updated', updated);
+    if (status === 'approved') io.emit('booking:approved', updated);
+    else if (status === 'rejected') io.emit('booking:rejected', updated);
+    else if (status === 'cancelled') io.emit('booking:cancelled', updated);
+
     const actionLabel = status === 'approved' ? 'BOOKING_APPROVE' :
                         status === 'rejected' ? 'BOOKING_REJECT' :
                         status === 'cancelled' ? 'BOOKING_CANCEL' : `STATUS_CHANGE_${status.toUpperCase()}`;
@@ -1054,13 +1116,24 @@ app.get('/api/reports', verifyToken, verifyAdminOrStaff, async (req, res) => {
 
 app.post('/api/reports', verifyToken, verifyAdminOrStaff, async (req, res) => {
   try {
-    const { type, room, format } = req.body;
+    const { type, room, format, dateFrom, dateTo, filters, fileName } = req.body;
     const now = new Date();
     const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
     const date = localDate.toISOString().split('T')[0];
 
     const report = await prisma.report.create({
-      data: { type, room, format: format || 'PDF', date, status: 'Generated' }
+      data: { 
+        type, 
+        room, 
+        format: format || 'PDF', 
+        date, 
+        status: 'Generated',
+        adminId: req.user.id,
+        dateFrom,
+        dateTo,
+        filters: filters ? JSON.stringify(filters) : null,
+        fileName
+      }
     });
     res.status(201).json(report);
   } catch (err) {

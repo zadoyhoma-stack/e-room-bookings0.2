@@ -84,25 +84,37 @@ try {
     });
   }
   
-  socket.on('new_booking', (booking: Booking) => {
+  const handleNewBooking = (booking: Booking) => {
     const bookings = readLocal<Booking[]>(KEYS.bookings, []);
     if (!bookings.some(b => b.id === booking.id)) {
       bookings.unshift(booking);
       writeLocal(KEYS.bookings, bookings);
     }
-  });
+  };
 
-  socket.on('update_booking', (updatedBooking: Booking) => {
+  const handleUpdateBooking = (updatedBooking: Booking) => {
     const bookings = readLocal<Booking[]>(KEYS.bookings, []);
     const updated = bookings.map(b => b.id === updatedBooking.id ? updatedBooking : b);
     writeLocal(KEYS.bookings, updated);
-  });
+  };
 
-  socket.on('room_updated', (updatedRoom: Room) => {
+  const handleUpdateRoom = (updatedRoom: Room) => {
     const rooms = readLocal<Room[]>(KEYS.rooms, mockRooms);
     const updated = rooms.map(r => r.id === updatedRoom.id ? updatedRoom : r);
     writeLocal(KEYS.rooms, updated);
-  });
+  };
+
+  socket.on('new_booking', handleNewBooking);
+  socket.on('booking:created', handleNewBooking);
+
+  socket.on('update_booking', handleUpdateBooking);
+  socket.on('booking:updated', handleUpdateBooking);
+  socket.on('booking:approved', handleUpdateBooking);
+  socket.on('booking:rejected', handleUpdateBooking);
+  socket.on('booking:cancelled', handleUpdateBooking);
+
+  socket.on('room_updated', handleUpdateRoom);
+  socket.on('room:updated', handleUpdateRoom);
 
   socket.on('new_problem', (problem: Problem) => {
     const problems = readLocal<Problem[]>(KEYS.problems, []);
@@ -561,7 +573,7 @@ export async function getReports(): Promise<any[]> {
   return [];
 }
 
-export async function createReport(data: { type: string, room: string, format: string }): Promise<any> {
+export async function createReport(data: { type: string; room: string; format: string; dateFrom?: string; dateTo?: string; filters?: any; fileName?: string }): Promise<any> {
   const apiResult = await tryFetch<any>("/api/reports", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -572,3 +584,6 @@ export async function createReport(data: { type: string, room: string, format: s
 
 // Storage key exports for direct access if needed
 export { KEYS };
+
+
+

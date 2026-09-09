@@ -61,7 +61,7 @@ export const Navbar = ({ onLoginClick, onProfileClick, onEvaluateClick, onReport
             <div className="relative shrink-0 flex items-center justify-center py-1">
               <div className="absolute inset-0 bg-white/20 blur-xl rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
               <img
-                src="/ตรามหาลัย.png"
+                src="/university-logo.png"
                 alt="มหาวิทยาลัยราชภัฎมหาสารคาม"
                 className="relative h-[96px] sm:h-[106px] w-auto object-contain mix-blend-multiply contrast-[1.05] transition-all duration-300 group-hover:scale-110 group-hover:-translate-y-0.5"
               />
