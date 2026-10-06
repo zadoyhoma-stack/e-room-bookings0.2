@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle, AlertTriangle } from "lucide-react";
+import { CheckCircle, AlertTriangle, FileSpreadsheet, FileIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Problem, ProblemStatus, ProblemUrgency } from "@/data/mockData";
+import { exportProblemsToExcel } from "@/lib/report/excelExport";
+import { exportProblemsToPdf } from "@/lib/report/pdfExport";
 
 type ProblemFilter = "all" | ProblemStatus;
 
@@ -16,9 +19,13 @@ const fetchProblems = async (): Promise<Problem[]> => {
 };
 
 const updateProblemStatus = async ({ id, status }: { id: string; status: ProblemStatus }): Promise<Problem> => {
+  const token = sessionStorage.getItem('arit_token');
   const res = await fetch(`/api/problems/${id}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: { 
+      "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {})
+    },
     body: JSON.stringify({ status }),
   });
   if (!res.ok) throw new Error("Failed to update status");
@@ -59,6 +66,25 @@ const ManageProblems = () => {
     }
   };
 
+  const handleExportExcel = () => {
+    try {
+      exportProblemsToExcel(filteredProblems);
+      toast.success("ส่งออกรายงาน Excel สำเร็จ");
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาดในการส่งออก Excel");
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      toast.info("กำลังสร้าง PDF...");
+      await exportProblemsToPdf(filteredProblems);
+      toast.success("ส่งออกรายงาน PDF สำเร็จ");
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาดในการส่งออก PDF");
+    }
+  };
+
   return (
     <div className="space-y-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-6 lg:p-10 rounded-[32px] shadow-2xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-800 min-h-[80vh]">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -79,6 +105,24 @@ const ManageProblems = () => {
               {f === "all" ? "ทั้งหมด" : f === "pending" ? "รอแก้ไข" : "แก้ไขแล้ว"}
             </button>
           ))}
+        </div>
+
+        <div className="flex items-center gap-2 mt-4 sm:mt-0">
+          <Button
+            size="sm"
+            onClick={handleExportExcel}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs h-10 px-4 shadow-md shadow-emerald-600/20"
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-1.5" /> ส่งออก Excel
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={handleExportPdf}
+            className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs h-10 px-4 shadow-md shadow-rose-600/20"
+          >
+            <FileIcon className="w-4 h-4 mr-1.5" /> ส่งออก PDF
+          </Button>
         </div>
       </div>
 

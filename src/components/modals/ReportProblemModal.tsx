@@ -98,7 +98,7 @@ export const ReportProblemModal = ({ open, onOpenChange, onSuccess }: ReportProb
                 <SelectValue placeholder="-- เลือกห้อง --" />
               </SelectTrigger>
               <SelectContent className="rounded-xl">
-                {mockRooms.map((r) => (
+                {mockRooms.filter(r => !r.hidden).map((r) => (
                   <SelectItem key={r.id} value={r.id}>
                     {r.name}
                   </SelectItem>

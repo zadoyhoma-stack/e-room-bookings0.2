@@ -158,11 +158,10 @@ export const Navbar = ({ onLoginClick, onProfileClick, onEvaluateClick, onReport
                       <User className="h-4 w-4 text-slate-400" />
                     )}
                   </div>
-                  <div className={cn("flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-xs font-medium", roleConfig?.bg, roleConfig?.color)}>
-                    <RoleIcon className="h-3 w-3" />
-                    {roleConfig?.label}
+                  <div className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full border text-xs font-bold", roleConfig?.bg, roleConfig?.color)}>
+                    <RoleIcon className="h-3.5 w-3.5" />
+                    <span className="max-w-[120px] truncate">{displayName}</span>
                   </div>
-                  <span className="text-sm text-card-foreground font-medium max-w-[120px] truncate">{displayName}</span>
                   <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", dropdownOpen && "rotate-180")} />
                 </button>
 

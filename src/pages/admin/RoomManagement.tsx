@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, MoreVertical, Edit2, Trash2, Image as ImageIcon, MapPin, Users, Settings2, DoorOpen, Save, X, Search } from "lucide-react";
+import { Plus, MoreVertical, Edit2, Trash2, Image as ImageIcon, MapPin, Users, Settings2, DoorOpen, Save, X, Search, EyeOff, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -31,6 +31,7 @@ const RoomManagement = () => {
   const [editEquipment, setEditEquipment] = useState("");
   const [editRules, setEditRules] = useState("");
   const [editImage, setEditImage] = useState("");
+  const [editLocation, setEditLocation] = useState("");
 
   const { data: rooms = [], isLoading } = useQuery({
     queryKey: ["admin_rooms"],
@@ -68,11 +69,17 @@ const RoomManagement = () => {
       setEditEquipment(room.equipment?.join(", ") || "");
       setEditRules(room.rules?.join("\n") || "");
       setEditImage(room.image || "");
+      setEditLocation(room.location || "");
       setIsModalOpen(true);
     } else if (action === "Set Availability") {
       updateMutation.mutate({ 
         id: room.id, 
         status: room.status === "available" ? "maintenance" : "available" 
+      });
+    } else if (action === "Toggle Hidden") {
+      updateMutation.mutate({
+        id: room.id,
+        hidden: !room.hidden
       });
     } else {
       toast({ title: `การดำเนินการ: ${action}`, description: `กำลังพัฒนาระบบนี้สำหรับ ${room.name}` });
@@ -88,6 +95,7 @@ const RoomManagement = () => {
     setEditEquipment("");
     setEditRules("");
     setEditImage("");
+    setEditLocation("");
     setIsModalOpen(true);
   };
 
@@ -106,7 +114,7 @@ const RoomManagement = () => {
       rules: editRules.split("\n").map(r => r.trim()).filter(Boolean),
       image: editImage,
       status: selectedRoom?.status || "available",
-      location: selectedRoom?.location || "ไม่ได้ระบุ"
+      location: editLocation || "ไม่ได้ระบุ"
     });
   };
 
@@ -158,7 +166,12 @@ const RoomManagement = () => {
               <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/20 to-transparent" />
               
               <div className="absolute top-4 right-4 flex gap-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-bold border ${room.status === 'available' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-rose-50 text-rose-600 border-rose-200'}`}>
+                {room.hidden && (
+                  <span className="px-3 py-1 rounded-full text-xs font-bold border bg-slate-800/80 text-white border-slate-600 backdrop-blur-sm flex items-center gap-1 shadow-sm">
+                    <EyeOff className="w-3 h-3" /> ถูกซ่อนไว้
+                  </span>
+                )}
+                <span className={`px-3 py-1 rounded-full text-xs font-bold border shadow-sm backdrop-blur-sm ${room.status === 'available' ? 'bg-emerald-50/90 text-emerald-600 border-emerald-200' : 'bg-rose-50/90 text-rose-600 border-rose-200'}`}>
                   {room.status === 'available' ? 'ว่าง' : 'ปิดปรับปรุง'}
                 </span>
               </div>
@@ -208,6 +221,14 @@ const RoomManagement = () => {
                     </DropdownMenuItem>
                     <DropdownMenuItem className="rounded-lg cursor-pointer py-2" onClick={() => handleAction("Set Availability", room)}>
                       <Settings2 className="w-4 h-4 mr-2 text-slate-500" /> สลับสถานะ (ว่าง/ซ่อม)
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator className="bg-slate-100 dark:bg-slate-800" />
+                    <DropdownMenuItem className="rounded-lg cursor-pointer py-2 text-rose-600 focus:bg-rose-50 focus:text-rose-700 dark:focus:bg-rose-500/10" onClick={() => handleAction("Toggle Hidden", room)}>
+                      {room.hidden ? (
+                        <><Eye className="w-4 h-4 mr-2" /> ยกเลิกการซ่อนห้อง</>
+                      ) : (
+                        <><EyeOff className="w-4 h-4 mr-2" /> ซ่อนห้องจากผู้ใช้</>
+                      )}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -316,7 +337,7 @@ const RoomManagement = () => {
           </div>
           
           <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-3 gap-6">
               <div className="space-y-2">
                 <Label className="text-slate-500 font-bold">ชื่อห้อง</Label>
                 <Input value={editName} onChange={(e) => setEditName(e.target.value)} className="rounded-xl h-11 border-slate-200" />
@@ -324,6 +345,10 @@ const RoomManagement = () => {
               <div className="space-y-2">
                 <Label className="text-slate-500 font-bold">ความจุ (คน)</Label>
                 <Input type="number" value={editCapacity} onChange={(e) => setEditCapacity(e.target.value)} className="rounded-xl h-11 border-slate-200" />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-slate-500 font-bold">ชั้น / สถานที่</Label>
+                <Input value={editLocation} onChange={(e) => setEditLocation(e.target.value)} placeholder="เช่น ชั้น 2, ชั้น 4 ฝั่งซ้าย" className="rounded-xl h-11 border-slate-200" />
               </div>
             </div>
             

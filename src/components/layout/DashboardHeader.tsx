@@ -84,11 +84,10 @@ export const DashboardHeader = ({ onLoginClick, onProfileClick, onEvaluateClick,
                         <User className="h-4 w-4 text-[#1877f2]" />
                       )}
                     </div>
-                    <div className={cn("hidden sm:flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold", roleConfig?.bg, roleConfig?.color)}>
-                      <RoleIcon className="h-3.5 w-3.5" />
-                      {roleConfig?.label}
+                    <div className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-bold", roleConfig?.bg, roleConfig?.color)}>
+                      <RoleIcon className="h-4 w-4" />
+                      <span className="truncate max-w-[150px]">{displayName}</span>
                     </div>
-                    <span className="text-sm font-semibold max-w-[120px] sm:max-w-[150px] truncate hidden xs:inline-block">{displayName}</span>
                     <ChevronDown className={cn("h-4 w-4 transition-transform duration-300", dropdownOpen && "rotate-180")} />
                   </button>
 

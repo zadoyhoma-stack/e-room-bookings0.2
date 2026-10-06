@@ -82,6 +82,13 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
       if (booking.status === 'pending') {
         return { status: 'pending', label: 'รออนุมัติ' };
       }
+      if (booking.status === 'completed') {
+        return { status: 'past', label: 'ใช้งานแล้ว' };
+      }
+    }
+
+    if (realTimeDate === selectedDateStr && realTimeHH && time < realTimeHH) {
+      return { status: 'past', label: 'หมดเวลา' };
     }
 
     return { status: 'available', label: 'ว่าง' };
@@ -98,15 +105,26 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
             {/* Room Info Section */}
             <div className="w-full xl:w-[500px] shrink-0 flex flex-col gap-3 bg-slate-800/25 dark:bg-slate-800/60 border border-white/40 dark:border-slate-700/60 rounded-xl p-4 shadow-sm">
               <div className="flex gap-4 sm:gap-6">
-                {/* Room Image */}
-                <div 
-                  className="w-[120px] h-[80px] sm:w-[160px] sm:h-[100px] rounded-xl overflow-hidden shrink-0 shadow-sm border border-white/20 dark:border-white/10"
-                >
-                  <img 
-                    src={room.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800"} 
-                    alt={room.name} 
-                    className="w-full h-full object-cover" 
-                  />
+                {/* Image and Button Column */}
+                <div className="flex flex-col gap-3 shrink-0 w-[120px] sm:w-[160px]">
+                  {/* Room Image */}
+                  <div 
+                    className="w-full h-[80px] sm:h-[100px] rounded-xl overflow-hidden shadow-sm border border-white/20 dark:border-white/10"
+                  >
+                    <img 
+                      src={room.image || "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=800"} 
+                      alt={room.name} 
+                      className="w-full h-full object-cover" 
+                    />
+                  </div>
+
+                  {/* View Detail Trigger */}
+                  <button 
+                    onClick={() => toggleRoom(room.id)}
+                    className="flex items-center justify-center gap-1.5 text-[11px] sm:text-[12px] font-medium text-white bg-white/20 hover:bg-white/30 dark:bg-white/10 dark:hover:bg-white/20 border border-white/20 dark:border-white/10 rounded-xl px-2 py-2 w-full transition-all duration-200 shadow-sm"
+                  >
+                    <span className="truncate">👇 รายละเอียดห้อง</span>
+                  </button>
                 </div>
                 
                 {/* Text Info */}
@@ -154,16 +172,9 @@ export const BookingScheduler = React.memo(({ rooms, bookings, selectedDate, rea
                     }
                     return null;
                   })()}
+
                 </div>
               </div>
-
-              {/* View Detail Trigger */}
-              <button 
-                onClick={() => toggleRoom(room.id)}
-                className="flex items-center justify-center gap-2 text-[14px] font-medium text-white bg-white/20 hover:bg-white/30 dark:bg-white/10 dark:hover:bg-white/20 border border-white/20 dark:border-white/10 rounded-[14px] px-5 py-3 w-fit transition-all duration-200 shadow-sm"
-              >
-                <span>👇 คลิกเพื่อดูรายละเอียดห้อง</span>
-              </button>
             </div>
             
             {/* Time Slots Section */}

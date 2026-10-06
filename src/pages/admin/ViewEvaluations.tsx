@@ -1,6 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Star } from "lucide-react";
+import { Star, FileSpreadsheet, FileIcon } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Evaluation } from "@/data/mockData";
+import { exportEvaluationsToExcel } from "@/lib/report/excelExport";
+import { exportEvaluationsToPdf } from "@/lib/report/pdfExport";
 
 const fetchEvaluations = async (): Promise<Evaluation[]> => {
   const res = await fetch("/api/evaluations");
@@ -27,10 +31,47 @@ const ViewEvaluations = () => {
     );
   };
 
+  const handleExportExcel = () => {
+    try {
+      exportEvaluationsToExcel(evaluations);
+      toast.success("ส่งออกรายงาน Excel สำเร็จ");
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาดในการส่งออก Excel");
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      toast.info("กำลังสร้าง PDF...");
+      await exportEvaluationsToPdf(evaluations);
+      toast.success("ส่งออกรายงาน PDF สำเร็จ");
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาดในการส่งออก PDF");
+    }
+  };
+
   return (
     <div className="space-y-6 bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl p-6 lg:p-10 rounded-[32px] shadow-2xl shadow-slate-200/40 dark:shadow-none border border-slate-100 dark:border-slate-800 min-h-[80vh]">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h2 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">ผลประเมินความพึงพอใจ</h2>
+        
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={handleExportExcel}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs h-10 px-4 shadow-md shadow-emerald-600/20"
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-1.5" /> ส่งออก Excel
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={handleExportPdf}
+            className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs h-10 px-4 shadow-md shadow-rose-600/20"
+          >
+            <FileIcon className="w-4 h-4 mr-1.5" /> ส่งออก PDF
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

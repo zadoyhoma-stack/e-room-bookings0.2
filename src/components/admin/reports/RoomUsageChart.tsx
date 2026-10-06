@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TrendingUp, PieChart as PieChartIcon } from "lucide-react";
 import {
@@ -18,64 +18,39 @@ import {
 const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
 
 interface RoomUsageChartProps {
-  monthlyData: any[];
+  popularRoomsData: any[];
   roomUsageData: any[];
 }
 
 export const RoomUsageChart: React.FC<RoomUsageChartProps> = ({
-  monthlyData,
+  popularRoomsData,
   roomUsageData,
 }) => {
-  const [chartRange, setChartRange] = useState<"6m" | "12m">("6m");
-
-  const displayMonthlyData = chartRange === "6m" ? monthlyData.slice(-6) : monthlyData;
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-      {/* Monthly Trend Chart */}
+      {/* Popular Rooms Chart */}
       <Card className="lg:col-span-2 border-slate-200 dark:border-slate-800 shadow-lg shadow-slate-200/50 dark:shadow-none bg-white dark:bg-slate-900 rounded-3xl overflow-hidden">
-        <CardHeader className="border-b border-slate-100 dark:border-slate-800 p-6 flex flex-row items-center justify-between">
+        <CardHeader className="border-b border-slate-100 dark:border-slate-800 p-6">
           <CardTitle className="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
             <TrendingUp className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-            แนวโน้มสถิติการใช้ห้องประชุม
+            สถิติความนิยมการจองแยกตามห้อง
           </CardTitle>
-          <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl text-xs font-bold">
-            <button
-              onClick={() => setChartRange("6m")}
-              className={`px-3 py-1 rounded-lg transition-all ${
-                chartRange === "6m"
-                  ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                  : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-              }`}
-            >
-              6 เดือนล่าสุด
-            </button>
-            <button
-              onClick={() => setChartRange("12m")}
-              className={`px-3 py-1 rounded-lg transition-all ${
-                chartRange === "12m"
-                  ? "bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                  : "text-slate-500 hover:text-slate-900 dark:hover:text-white"
-              }`}
-            >
-              ทั้งหมด
-            </button>
-          </div>
         </CardHeader>
 
         <CardContent className="p-6">
-          <div className="h-[280px] w-full">
+          <div className="h-[350px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={displayMonthlyData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fill: "#64748b", fontSize: 12, fontWeight: 600 }}
-                  dy={10}
+              <BarChart data={popularRoomsData} layout="vertical" margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
+                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} allowDecimals={false} />
+                <YAxis 
+                  type="category" 
+                  dataKey="name" 
+                  axisLine={false} 
+                  tickLine={false} 
+                  tick={{ fill: "#64748b", fontSize: 11, fontWeight: 600 }} 
+                  width={160} 
                 />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#64748b", fontSize: 12 }} />
                 <Tooltip
                   cursor={{ fill: "#f1f5f9" }}
                   contentStyle={{
@@ -87,8 +62,8 @@ export const RoomUsageChart: React.FC<RoomUsageChartProps> = ({
                     fontWeight: 600,
                   }}
                 />
-                <Bar dataKey="จำนวนการจอง" fill="#6366f1" radius={[8, 8, 0, 0]} maxBarSize={45}>
-                  {displayMonthlyData.map((entry, index) => (
+                <Bar dataKey="จำนวนการจอง" fill="#6366f1" radius={[0, 8, 8, 0]} maxBarSize={16}>
+                  {popularRoomsData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>
@@ -107,7 +82,7 @@ export const RoomUsageChart: React.FC<RoomUsageChartProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="p-6">
-          <div className="h-[280px] w-full flex flex-col items-center justify-center">
+          <div className="h-[350px] w-full flex flex-col items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
@@ -115,7 +90,7 @@ export const RoomUsageChart: React.FC<RoomUsageChartProps> = ({
                   cx="50%"
                   cy="45%"
                   innerRadius={55}
-                  outerRadius={75}
+                  outerRadius={85}
                   paddingAngle={4}
                   dataKey="value"
                 >

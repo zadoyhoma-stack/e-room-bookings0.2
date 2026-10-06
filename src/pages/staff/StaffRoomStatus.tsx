@@ -71,8 +71,8 @@ const StaffRoomStatus = () => {
         text: `คุณต้องการ${isMaint ? 'เปิดใช้งาน' : 'ปิดปรับปรุง'}ห้อง "${room.name}" ใช่หรือไม่?`,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: isMaint ? '#0ea5e9' : '#ef4444',
-        cancelButtonColor: '#94a3b8',
+        confirmButtonColor: '#16a34a',
+        cancelButtonColor: '#ef4444',
         confirmButtonText: 'ยืนยัน',
         cancelButtonText: 'ยกเลิก'
       }).then((result) => {

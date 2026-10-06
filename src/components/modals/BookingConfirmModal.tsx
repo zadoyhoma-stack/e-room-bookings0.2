@@ -102,7 +102,19 @@ export const BookingConfirmModal = ({
       setEditParticipants(cappedParticipants);
       
       setTopic('');
-      setBookerName(currentUser?.name || '');
+      
+      let formattedName = currentUser?.name || '';
+      if (currentUser) {
+        if (currentUser.role === 'student' && currentUser.studentId) {
+          formattedName = `${currentUser.name} (${currentUser.studentId})`;
+        } else if (currentUser.role === 'staff' && currentUser.department) {
+          formattedName = `${currentUser.name} (${currentUser.department})`;
+        } else if (currentUser.role === 'admin') {
+          formattedName = `${currentUser.name} (ผู้ดูแลระบบ)`;
+        }
+      }
+      setBookerName(formattedName);
+
       setEmail(currentUser?.email || '');
       setPhone(currentUser?.phone || '');
       setDepartment(currentUser?.department || '');
@@ -125,7 +137,7 @@ export const BookingConfirmModal = ({
     return bookings.some(b => {
       if (b.roomId !== room.id) return false;
       if (b.date !== submitDate) return false;
-      if (b.status !== 'pending' && b.status !== 'approved') return false;
+      if (b.status === 'cancelled' || b.status === 'rejected') return false;
       
       const sStart = timeToMins(editStartTime);
       const sEnd = timeToMins(editEndTime);
@@ -317,9 +329,9 @@ export const BookingConfirmModal = ({
               </Label>
               <Input
                 value={bookerName}
-                onChange={(e) => setBookerName(e.target.value)}
+                readOnly
                 placeholder="กรอกชื่อ-นามสกุล"
-                className="rounded-xl bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 h-11 text-xs"
+                className="rounded-xl bg-slate-100 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 h-11 text-xs cursor-not-allowed text-slate-500 font-semibold"
               />
             </div>
             <div>

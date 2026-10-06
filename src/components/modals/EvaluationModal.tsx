@@ -2,7 +2,7 @@ import { useState } from "react";
 import { AppModal } from "@/components/ui/AppModal";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Star, Send, MessageSquareHeart } from "lucide-react";
+import { Star, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import * as ds from "@/services/dataService";
 
@@ -57,7 +57,7 @@ export const EvaluationModal = ({ open, onOpenChange }: EvaluationModalProps) =>
       onOpenChange={onOpenChange}
       size="md"
       variant="success"
-      icon={<MessageSquareHeart className="w-6 h-6" />}
+      icon={<img src="/university-logo.png" alt="ตรามหาวิทยาลัย" className="w-6 h-6 object-contain" />}
       title="ประเมินความพึงพอใจระบบ ARIT E-ROOMs"
       description="ข้อมูลการประเมินของคุณช่วยพัฒนาการให้บริการห้องประชุมออนไลน์"
       showCloseButton

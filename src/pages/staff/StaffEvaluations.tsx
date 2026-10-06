@@ -1,7 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Star, MessageSquare, TrendingUp, Users } from "lucide-react";
+import { Star, MessageSquare, TrendingUp, Users, FileSpreadsheet, FileIcon } from "lucide-react";
+import { toast } from "sonner";
 import { Evaluation } from "@/data/mockData";
 import { cn } from "@/lib/utils";
+import { exportEvaluationsToExcel } from "@/lib/report/excelExport";
+import { exportEvaluationsToPdf } from "@/lib/report/pdfExport";
 import * as ds from "@/services/dataService";
 
 const StaffEvaluations = () => {
@@ -36,16 +39,52 @@ const StaffEvaluations = () => {
     </div>
   );
 
+  const handleExportExcel = () => {
+    try {
+      exportEvaluationsToExcel(evaluations);
+      toast.success("ส่งออกรายงาน Excel สำเร็จ");
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาดในการส่งออก Excel");
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      toast.info("กำลังสร้าง PDF...");
+      await exportEvaluationsToPdf(evaluations);
+      toast.success("ส่งออกรายงาน PDF สำเร็จ");
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาดในการส่งออก PDF");
+    }
+  };
+
   return (
     <div className="space-y-8 font-['Kanit',sans-serif]">
       {/* Header */}
-      <div className="flex items-center gap-5">
-        <div className="p-3 bg-gradient-to-br from-pink-400 to-rose-500 rounded-2xl shadow-lg shadow-rose-500/30">
-          <Star className="h-8 w-8 md:h-10 md:w-10 text-white fill-white/20" />
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+        <div className="flex items-center gap-5">
+          <div className="p-3 bg-gradient-to-br from-pink-400 to-rose-500 rounded-2xl shadow-lg shadow-rose-500/30">
+            <Star className="h-8 w-8 md:h-10 md:w-10 text-white fill-white/20" />
+          </div>
+          <div>
+            <h2 className="text-4xl md:text-5xl font-black text-slate-800 drop-shadow-sm">ผลประเมินความพึงพอใจ</h2>
+            <p className="text-sm font-semibold text-slate-500 mt-2">ผลประเมินจากนักศึกษาที่ใช้ระบบจองห้อง</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-4xl md:text-5xl font-black text-slate-800 drop-shadow-sm">ผลประเมินความพึงพอใจ</h2>
-          <p className="text-sm font-semibold text-slate-500 mt-2">ผลประเมินจากนักศึกษาที่ใช้ระบบจองห้อง</p>
+
+        <div className="flex items-center gap-2 w-full sm:w-auto">
+          <button
+            onClick={handleExportExcel}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs h-11 px-5 shadow-md shadow-emerald-600/20 transition-all"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> ส่งออก Excel
+          </button>
+          <button
+            onClick={handleExportPdf}
+            className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs h-11 px-5 shadow-md shadow-rose-600/20 transition-all"
+          >
+            <FileIcon className="w-4 h-4" /> ส่งออก PDF
+          </button>
         </div>
       </div>
 

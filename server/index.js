@@ -53,7 +53,8 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
+app.use(express.urlencoded({ limit: '5mb', extended: true }));
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -264,21 +265,25 @@ const VALID_TRANSITIONS = {
 
 // ==================== Thai Timezone Helper ====================
 function getThaiNow() {
-  // UTC+7 for Asia/Bangkok
   const now = new Date();
   const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-  const thai = new Date(utc + (7 * 60 * 60 * 1000));
-  return thai;
+  return new Date(utc + (7 * 60 * 60 * 1000));
 }
 
 function getThaiDateStr() {
-  const d = getThaiNow();
-  return d.toISOString().split('T')[0];
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  });
+  return formatter.format(new Date()); // YYYY-MM-DD
 }
 
 function getThaiTimeStr() {
-  const d = getThaiNow();
-  return d.toISOString().split('T')[1].substring(0, 5);
+  const formatter = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Bangkok',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  });
+  return formatter.format(new Date()); // HH:mm
 }
 
 // ==================== Email Notify Helper ====================

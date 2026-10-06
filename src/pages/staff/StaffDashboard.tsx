@@ -1,3 +1,4 @@
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   CalendarCheck, 
@@ -18,19 +19,38 @@ import {
   Settings,
   Camera,
   Save,
-  X
+  X,
+  MonitorPlay,
+  Activity,
+  Building2,
+  Calendar as CalendarIcon,
+  BarChart
 } from "lucide-react";
 import { Booking, Problem, Evaluation, Room } from "@/data/mockData";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { format, subDays } from "date-fns";
+import { format, subDays, startOfWeek, addDays, getDay } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { BarChart as RechartsBarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
-import { useState } from "react";
 import * as ds from "@/services/dataService";
+
+const timeToMinutes = (timeStr: string) => {
+  const [h, m] = (timeStr || "00:00").split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+
+type ChartPeriod = "year" | "month" | "week" | "day";
+
+const periodLabels: Record<ChartPeriod, string> = {
+  year: "รายปี",
+  month: "รายเดือน",
+  week: "รายสัปดาห์",
+  day: "รายวัน",
+};
 
 const StaffDashboard = () => {
   const queryClient = useQueryClient();
@@ -38,28 +58,134 @@ const StaffDashboard = () => {
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [editForm, setEditForm] = useState({ nickname: "", profilePic: "" });
   const [isSaving, setIsSaving] = useState(false);
+  const [chartPeriod, setChartPeriod] = useState<ChartPeriod>("month");
+
   const { data: bookings = [] } = useQuery<Booking[]>({ queryKey: ["staff_bookings"], queryFn: () => ds.getBookings() });
   const { data: problems = [] } = useQuery<Problem[]>({ queryKey: ["staff_problems"], queryFn: () => ds.getProblems() });
   const { data: evaluations = [] } = useQuery<Evaluation[]>({ queryKey: ["staff_evaluations"], queryFn: () => ds.getEvaluations() });
   const { data: rooms = [] } = useQuery<Room[]>({ queryKey: ["staff_rooms"], queryFn: () => ds.getRooms() });
+  const { data: users = [] } = useQuery({ queryKey: ["staff_users"], queryFn: () => ds.getUsers() });
 
   const pending = bookings.filter(b => b.status === "pending");
-  const todayStr = format(new Date(), "yyyy-MM-dd");
-  const occupiedIds = new Set(bookings.filter(b => b.status === "approved" && b.date === todayStr).map(b => b.roomId));
-  const availCount = rooms.filter(r => !occupiedIds.has(r.id) && r.status !== "maintenance").length;
-  const pendingProblemsCount = problems.filter(p => p.status === "pending").length;
-  const avgRating = evaluations.length ? (evaluations.reduce((s, e) => s + e.rating, 0) / evaluations.length).toFixed(1) : "—";
 
-  // Chart data setup for 7 days
-  const chartData = Array.from({ length: 7 }, (_, i) => {
-    const d = subDays(new Date(), 6 - i);
-    return { 
-      name: format(d, "EEE", { locale: th }), 
-      count: bookings.filter(b => b.date === format(d, "yyyy-MM-dd")).length 
-    };
+  // ──── Admin-style Dashboard Stats ────
+  const totalBookings = bookings.length;
+  const totalRooms = rooms.length;
+  const activeUsers = users.length;
+
+  const now = new Date();
+  const todayStr = format(now, 'yyyy-MM-dd');
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const activeBookings = bookings.filter(b => b.date === todayStr && b.status === "approved" && nowMins >= timeToMinutes(b.startTime) && nowMins < timeToMinutes(b.endTime));
+  const availableRoomsCount = Math.max(0, totalRooms - activeBookings.length);
+
+  const bookingRate = totalRooms > 0 ? Math.round((activeBookings.length / totalRooms) * 100) + "%" : "0%";
+
+  // ──── Chart data computation by period (same as Admin) ────
+  const chartData = useMemo(() => {
+    const monthNames = ["", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+    const dayNames = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
+
+    if (chartPeriod === "year") {
+      const yearMap: Record<string, number> = {};
+      bookings.forEach(b => {
+        if (!b.date) return;
+        const yyyy = b.date.split('-')[0];
+        if (yyyy) yearMap[yyyy] = (yearMap[yyyy] || 0) + 1;
+      });
+      const data = Object.keys(yearMap).sort().map(y => ({ name: `พ.ศ. ${parseInt(y) + 543}`, bookings: yearMap[y] }));
+      return data.length > 0 ? data : [{ name: "ยังไม่มีข้อมูล", bookings: 0 }];
+    }
+
+    if (chartPeriod === "month") {
+      const monthMap: Record<string, number> = {};
+      bookings.forEach(b => {
+        if (!b.date) return;
+        const [yyyy, mm] = b.date.split('-');
+        if (yyyy && mm) {
+          const key = `${yyyy}-${mm}`;
+          monthMap[key] = (monthMap[key] || 0) + 1;
+        }
+      });
+      const data = Object.keys(monthMap).sort().slice(-6).map(key => {
+        const [, mm] = key.split('-');
+        return { name: monthNames[parseInt(mm)] || key, bookings: monthMap[key] };
+      });
+      return data.length > 0 ? data : [{ name: "ยังไม่มีข้อมูล", bookings: 0 }];
+    }
+
+    if (chartPeriod === "week") {
+      const data: { name: string; bookings: number }[] = [];
+      for (let w = 3; w >= 0; w--) {
+        const weekStart = startOfWeek(subDays(now, w * 7), { weekStartsOn: 1 });
+        const weekEnd = addDays(weekStart, 6);
+        const count = bookings.filter(b => {
+          if (!b.date) return false;
+          return b.date >= format(weekStart, 'yyyy-MM-dd') && b.date <= format(weekEnd, 'yyyy-MM-dd');
+        }).length;
+        data.push({
+          name: `${format(weekStart, 'd MMM', { locale: th })} - ${format(weekEnd, 'd MMM', { locale: th })}`,
+          bookings: count
+        });
+      }
+      return data.some(d => d.bookings > 0) ? data : [{ name: "ยังไม่มีข้อมูล", bookings: 0 }];
+    }
+
+    // day: show each day of the current week (Mon-Sun)
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const data: { name: string; bookings: number }[] = [];
+    for (let d = 0; d < 7; d++) {
+      const date = addDays(weekStart, d);
+      const dateStr = format(date, 'yyyy-MM-dd');
+      const count = bookings.filter(b => b.date === dateStr).length;
+      const isToday = dateStr === todayStr;
+      data.push({
+        name: `${dayNames[getDay(date)]}${isToday ? " (วันนี้)" : ""}`,
+        bookings: count
+      });
+    }
+    return data;
+  }, [bookings, chartPeriod, now, todayStr]);
+
+  // Room usage data (same as Admin)
+  const roomUsageMap: Record<string, number> = {};
+  bookings.forEach(b => {
+    if (b.roomName) {
+      roomUsageMap[b.roomName] = (roomUsageMap[b.roomName] || 0) + 1;
+    }
   });
+  const roomUsage = Object.keys(roomUsageMap).map(k => ({ name: k, usage: roomUsageMap[k] })).sort((a,b) => b.usage - a.usage).slice(0, 5);
+  if (roomUsage.length === 0) {
+    roomUsage.push({ name: "ยังไม่มีข้อมูล", usage: 0 });
+  }
 
+  // Peak usage density data — counts ALL hours each booking occupies, not just start time
+  const peakDensity = useMemo(() => {
+    const result: { time: string; count: number; density: number }[] = [];
+    for (let h = 8; h <= 20; h++) {
+      const hourStart = h * 60;
+      const hourEnd = (h + 1) * 60;
+      // Count approved bookings whose time range overlaps this hour slot
+      const activeCount = bookings.filter(b => {
+        if (!b.startTime || !b.endTime) return false;
+        const bStart = timeToMinutes(b.startTime);
+        const bEnd = timeToMinutes(b.endTime);
+        return bStart < hourEnd && bEnd > hourStart;
+      }).length;
+      const density = totalRooms > 0 ? Math.round((activeCount / totalRooms) * 100) : 0;
+      result.push({ time: `${h.toString().padStart(2, '0')}:00`, count: activeCount, density });
+    }
+    return result;
+  }, [bookings, totalRooms]);
 
+  const peakMax = useMemo(() => Math.max(...peakDensity.map(d => d.count), 1), [peakDensity]);
+
+  const getDensityLevel = useCallback((density: number) => {
+    if (density >= 75) return { label: "หนาแน่นมาก", color: "text-rose-600 bg-rose-50" };
+    if (density >= 50) return { label: "หนาแน่น", color: "text-amber-600 bg-amber-50" };
+    if (density >= 25) return { label: "ปานกลาง", color: "text-blue-600 bg-blue-50" };
+    return { label: "ว่าง", color: "text-emerald-600 bg-emerald-50" };
+  }, []);
 
   // Quick actions mutations
   const mutation = useMutation({
@@ -103,13 +229,10 @@ const StaffDashboard = () => {
 
   return (
     <div className="space-y-8 font-['Kanit',sans-serif] bg-slate-50/30 p-2 md:p-6 rounded-[40px] border border-slate-100/50">
-      {/* ── Header Section with Dark Blue to Dark Gray Gradient and Floating Orbs ── */}
+      {/* ── Header Section with Dark Blue to Dark Gray Gradient ── */}
       <div className="relative flex flex-col-reverse md:flex-row md:items-center justify-between gap-6 bg-gradient-to-br from-slate-950 via-blue-950 to-slate-900 p-8 md:p-10 rounded-[32px] shadow-2xl shadow-blue-900/30 border border-blue-500/20 overflow-hidden text-white transition-all duration-300 group">
         
-        {/* Header content without heavy blurs */}
-        
         <div className="relative z-10 flex-1">
-          {/* Real-time date badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 text-sky-300 font-bold text-xs tracking-wide mb-5 backdrop-blur-md border border-slate-700/50 shadow-inner">
             <span className="relative flex h-2 w-2">
               <span className="relative inline-flex rounded-full h-2 w-2 bg-sky-400"></span>
@@ -164,219 +287,297 @@ const StaffDashboard = () => {
         </div>
       </div>
 
-      {/* ── Stats Section: Premium Floating Glass Cards ── */}
-      <div className="grid gap-5 grid-cols-2 lg:grid-cols-4">
-        {[
-          { 
-            label: "รายการรออนุมัติ", 
-            value: pending.length, 
-            desc: "รอการตรวจสอบความถูกต้อง",
-            icon: Clock, 
-            bg: "bg-gradient-to-br from-indigo-500 to-purple-600", 
-            shadow: "shadow-indigo-500/30", 
-            borderHover: "hover:border-indigo-300",
-            text: "text-indigo-600",
-            link: "/staff/bookings" 
-          },
-          { 
-            label: "ห้องประชุมที่ว่างวันนี้", 
-            value: `${availCount}/${rooms.length}`, 
-            desc: "พร้อมใช้งานในขณะนี้",
-            icon: DoorOpen, 
-            bg: "bg-gradient-to-br from-emerald-400 to-cyan-500", 
-            shadow: "shadow-emerald-500/30", 
-            borderHover: "hover:border-cyan-300",
-            text: "text-cyan-600",
-            link: "/staff/rooms" 
-          },
-          { 
-            label: "รายงานปัญหารอแก้ไข", 
-            value: pendingProblemsCount, 
-            desc: "แจ้งเหตุขัดข้องจากผู้ใช้",
-            icon: AlertTriangle, 
-            bg: "bg-gradient-to-br from-amber-400 to-rose-500", 
-            shadow: "shadow-rose-500/30", 
-            borderHover: "hover:border-rose-300",
-            text: "text-rose-500",
-            link: "/staff/problems" 
-          },
-          { 
-            label: "คะแนนบริการเฉลี่ย", 
-            value: avgRating, 
-            desc: "คะแนนพึงพอใจการใช้งาน",
-            icon: Star, 
-            bg: "bg-gradient-to-br from-fuchsia-500 to-pink-500", 
-            shadow: "shadow-fuchsia-500/30", 
-            borderHover: "hover:border-fuchsia-300",
-            text: "text-fuchsia-500",
-            link: "/staff/evaluations" 
-          },
-        ].map((s) => (
-          <Link key={s.label} to={s.link} className="group">
-            <div className={cn("relative overflow-hidden rounded-[28px] p-6 bg-white border border-slate-100 shadow-sm hover:shadow-2xl transition-all duration-300 hover:-translate-y-1.5", s.borderHover, `hover:${s.shadow}`)}>
-              <div className="absolute -top-10 -right-10 w-32 h-32 bg-gradient-to-bl from-slate-100 to-transparent rounded-full transition-transform duration-700 group-hover:scale-150 group-hover:opacity-70"></div>
-              
-              <div className={cn("relative h-14 w-14 rounded-2xl flex items-center justify-center mb-5 shadow-lg transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3", s.bg, s.shadow)}>
-                <s.icon className="h-7 w-7 text-white" />
-              </div>
-              
-              <div className="relative">
-                <p className="text-4xl font-black tracking-tight text-slate-800 drop-shadow-sm font-sans">{s.value}</p>
-                <p className="text-sm font-bold text-slate-700 mt-2">{s.label}</p>
-                <p className="text-xs text-slate-400 font-medium mt-1">{s.desc}</p>
-              </div>
-              
-              <div className={cn("absolute bottom-5 right-5 text-slate-200 transition-colors duration-300 group-hover:scale-110", s.text)}>
-                <ArrowUpRight className="h-6 w-6" />
-              </div>
+      {/* ══════ Admin-style Stats Cards ══════ */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <Card className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-lg rounded-[24px] overflow-hidden relative">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-sky-400" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-semibold text-slate-500 tracking-wider uppercase flex items-center gap-2">
+              <CalendarIcon className="w-4 h-4 text-blue-500" /> การจองทั้งหมด
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-black text-slate-800 dark:text-white">{totalBookings}</div>
+            <div className="flex items-center mt-2 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-500/10 w-fit px-2 py-1 rounded-full">
+              <TrendingUp className="w-3 h-3 mr-1" /> จำนวนทั้งหมด
             </div>
-          </Link>
-        ))}
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-lg rounded-[24px] overflow-hidden relative">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-green-400" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-semibold text-slate-500 tracking-wider uppercase flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-emerald-500" /> ห้องว่างวันนี้
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-black text-slate-800 dark:text-white">{availableRoomsCount} <span className="text-base font-medium text-slate-400">/ {totalRooms}</span></div>
+            <div className="flex items-center mt-2 text-xs font-medium text-emerald-600 bg-emerald-50 dark:bg-emerald-500/10 w-fit px-2 py-1 rounded-full">
+              <CheckCircle2 className="w-3 h-3 mr-1" /> พร้อมให้บริการ
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-lg rounded-[24px] overflow-hidden relative">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-violet-500 to-purple-400" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-semibold text-slate-500 tracking-wider uppercase flex items-center gap-2">
+              <Users className="w-4 h-4 text-violet-500" /> ผู้ใช้งานทั้งหมด
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-black text-slate-800 dark:text-white">{activeUsers}</div>
+            <div className="flex items-center mt-2 text-xs font-medium text-violet-600 bg-violet-50 dark:bg-violet-500/10 w-fit px-2 py-1 rounded-full">
+              <Activity className="w-3 h-3 mr-1" /> ผู้ใช้ที่ลงทะเบียน
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-lg rounded-[24px] overflow-hidden relative">
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-orange-500 to-amber-400" />
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs font-semibold text-slate-500 tracking-wider uppercase flex items-center gap-2">
+              <MonitorPlay className="w-4 h-4 text-orange-500" /> อัตราใช้งาน
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-black text-slate-800 dark:text-white">{bookingRate}</div>
+            <div className="flex items-center mt-2 text-xs font-medium text-orange-600 bg-orange-50 dark:bg-orange-500/10 w-fit px-2 py-1 rounded-full">
+              <TrendingUp className="w-3 h-3 mr-1" /> มีการใช้งานหนาแน่น
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* ── Chart & Pending Bookings Rows ── */}
-      <div className="grid gap-6 lg:grid-cols-5">
-        {/* Left Panel: Analytics Chart & Usage Insights */}
-        <div className="lg:col-span-3 bg-white/90 backdrop-blur-md rounded-3xl border border-white shadow-xl shadow-slate-200/50 p-7 flex flex-col justify-between relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-50 rounded-full blur-3xl -mr-20 -mt-20 opacity-60 pointer-events-none"></div>
-
-          <div className="relative z-10">
-            <div className="flex items-center justify-between mb-8">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 text-indigo-600 shadow-inner border border-indigo-50">
-                  <BarChart3 className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-800 bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-indigo-800">สถิติการจองห้องประชุมในรอบ 7 วัน</h3>
-                  <p className="text-sm text-slate-500 font-medium mt-1">ข้อมูลวิเคราะห์ภาพรวมการใช้งานประจำสัปดาห์</p>
-                </div>
+      {/* ══════ Admin-style Charts ══════ */}
+      <div className="space-y-8">
+        
+        {/* Chart 1 - Booking Trends with interactive period tabs */}
+        <Card className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-lg rounded-[32px] overflow-hidden">
+          <CardHeader className="px-8 pt-8 pb-0">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <CardTitle className="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                <BarChart className="w-5 h-5 text-blue-500" /> แนวโน้มการจอง{periodLabels[chartPeriod]}
+              </CardTitle>
+              <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-0.5">
+                {(Object.keys(periodLabels) as ChartPeriod[]).map((period) => (
+                  <button
+                    key={period}
+                    onClick={() => setChartPeriod(period)}
+                    className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all duration-200 ${
+                      chartPeriod === period
+                        ? "bg-blue-500 text-white shadow-md shadow-blue-500/30"
+                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-white/60 dark:hover:bg-slate-700"
+                    }`}
+                  >
+                    {periodLabels[period]}
+                  </button>
+                ))}
               </div>
-              <span className="text-sm font-extrabold text-indigo-700 bg-indigo-50 px-4 py-1.5 rounded-full shadow-sm border border-indigo-100">{bookings.length} รายการจองรวม</span>
             </div>
-            
-            <div className="h-[220px] w-full">
+          </CardHeader>
+          <CardContent className="p-8">
+            <div className="h-[280px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} barSize={26}>
-                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                  <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} width={20} />
-                  <Tooltip
-                    cursor={{ fill: "rgba(37, 99, 235, 0.04)", radius: 6 }}
-                    contentStyle={{ borderRadius: "12px", border: "1px solid #e2e8f0", boxShadow: "0 10px 15px -3px rgba(0,0,0,0.05)", fontSize: "12px", fontFamily: "sans-serif" }}
-                    formatter={(v: number) => [`${v} รายการจอง`, "ยอดการจอง"]}
-                  />
-                  <Bar dataKey="count" fill="url(#blue-gradient)" radius={[6, 6, 0, 0]} />
+                <RechartsBarChart data={chartData} barCategoryGap="20%">
                   <defs>
-                    <linearGradient id="blue-gradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8b5cf6" />
-                      <stop offset="100%" stopColor="#4f46e5" />
+                    <linearGradient id="colorBookingsStaff" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9}/>
+                      <stop offset="100%" stopColor="#60a5fa" stopOpacity={0.6}/>
                     </linearGradient>
                   </defs>
-                </BarChart>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+                  <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)' }} 
+                    itemStyle={{ color: '#0f172a', fontWeight: 'bold' }}
+                    cursor={{ fill: 'rgba(59, 130, 246, 0.05)', radius: 8 }}
+                    formatter={(value: number) => [`${value} รายการ`, 'จำนวนการจอง']}
+                  />
+                  <Bar dataKey="bookings" fill="url(#colorBookingsStaff)" radius={[8, 8, 0, 0]} maxBarSize={50} />
+                </RechartsBarChart>
               </ResponsiveContainer>
             </div>
-          </div>
+          </CardContent>
+        </Card>
 
-          {/* Quick usage insights bar */}
-          <div className="mt-6 pt-5 border-t border-slate-100 flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-3">
-              <div className="h-3 w-3 rounded-full bg-blue-600"></div>
-              <span className="text-xs font-bold text-slate-600">อัตราการจองเฉลี่ยรายวันอยู่ในเกณฑ์ปกติ</span>
-            </div>
-            <div className="flex gap-4">
-              <div className="text-right">
-                <span className="text-[10px] text-slate-400 block font-bold">รอประเมินผล</span>
-                <span className="text-sm font-extrabold text-slate-800">{evaluations.length} รายการ</span>
+        <div className="grid sm:grid-cols-2 gap-8">
+          {/* Chart 2 - Room Usage */}
+          <Card className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-lg rounded-[32px]">
+            <CardHeader className="px-6 pt-6 pb-0">
+              <CardTitle className="text-md font-bold text-slate-800 dark:text-white">การใช้งานแต่ละห้อง</CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="h-[200px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsBarChart data={roomUsage} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                    <XAxis type="number" hide />
+                    <YAxis dataKey="name" type="category" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} width={150} />
+                    <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                    <Bar dataKey="usage" fill="#60a5fa" radius={[0, 4, 4, 0]} barSize={16} />
+                  </RechartsBarChart>
+                </ResponsiveContainer>
               </div>
-              <div className="w-[1px] h-8 bg-slate-100" />
-              <div className="text-right">
-                <span className="text-[10px] text-slate-400 block font-bold">ปัญหาได้รับการแก้ไข</span>
-                <span className="text-sm font-extrabold text-emerald-600">{problems.filter(p => p.status === "resolved").length} เรื่อง</span>
-              </div>
-            </div>
-          </div>
-        </div>
+            </CardContent>
+          </Card>
 
-        {/* Right Panel: Pending Bookings Quick Actions */}
-        <div className="lg:col-span-2 bg-gradient-to-b from-white to-slate-50/80 backdrop-blur-md rounded-3xl border border-white shadow-xl shadow-slate-200/50 flex flex-col relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-40 h-40 bg-orange-50 rounded-full blur-2xl -mr-10 -mt-10 opacity-70 pointer-events-none"></div>
-
-          <div className="relative z-10 flex items-center justify-between px-7 pt-7 pb-5 border-b border-slate-100">
-            <div className="flex items-center gap-3">
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-orange-100 to-rose-100 text-orange-600 shadow-inner border border-orange-50">
-                <Clock className="h-5 w-5" />
+          {/* Chart 3 — Peak Density */}
+          <Card className="bg-white dark:bg-slate-900 border-slate-100 dark:border-slate-800 shadow-lg rounded-[32px]">
+            <CardHeader className="px-6 pt-6 pb-0">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-md font-bold text-slate-800 dark:text-white">ความหนาแน่นการใช้งานตามช่วงเวลา</CardTitle>
+                <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${getDensityLevel(Math.round(peakDensity.reduce((s, d) => s + d.density, 0) / peakDensity.length)).color}`}>
+                  เฉลี่ย {Math.round(peakDensity.reduce((s, d) => s + d.density, 0) / peakDensity.length)}%
+                </span>
               </div>
-              <div>
-                <h3 className="text-base font-black text-slate-800">คำขอรออนุมัติ</h3>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">รายการจองล่าสุดที่ต้องการตรวจสอบ</p>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="h-[200px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsBarChart data={peakDensity} barCategoryGap="12%">
+                    <defs>
+                      <linearGradient id="densityGradientStaff" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#f59e0b" stopOpacity={0.95}/>
+                        <stop offset="100%" stopColor="#ef4444" stopOpacity={0.7}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="time" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
+                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
+                    <Tooltip
+                      contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.12)', padding: '12px 16px' }}
+                      cursor={{ fill: 'rgba(245, 158, 11, 0.06)', radius: 6 }}
+                      content={({ active, payload }) => {
+                        if (!active || !payload?.length) return null;
+                        const d = payload[0].payload;
+                        const level = getDensityLevel(d.density);
+                        return (
+                          <div className="bg-white rounded-2xl shadow-xl border border-slate-100 p-4 min-w-[180px]">
+                            <p className="text-sm font-black text-slate-800 mb-2">🕐 เวลา {d.time} น.</p>
+                            <div className="space-y-1.5">
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-slate-500">จำนวนการจอง</span>
+                                <span className="text-sm font-bold text-slate-800">{d.count} รายการ</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-slate-500">ความหนาแน่น</span>
+                                <span className="text-sm font-bold text-slate-800">{d.density}%</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-slate-500">ระดับ</span>
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${level.color}`}>{level.label}</span>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      }}
+                    />
+                    <Bar dataKey="count" fill="url(#densityGradientStaff)" radius={[6, 6, 0, 0]} maxBarSize={32} />
+                  </RechartsBarChart>
+                </ResponsiveContainer>
               </div>
-            </div>
-            {pending.length > 0 && (
-              <span className="text-xs font-extrabold bg-gradient-to-r from-orange-500 to-rose-500 text-white px-3 py-1 rounded-full shadow-md shadow-orange-500/20">
-                {pending.length} รายการ
-              </span>
-            )}
-          </div>
-          
-          <div className="flex-1 p-4 overflow-y-auto max-h-[260px] space-y-3 custom-scrollbar">
-            {pending.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-slate-400">
-                <div className="h-14 w-14 rounded-full bg-slate-50 flex items-center justify-center mb-3">
-                  <CheckCircle2 className="h-8 w-8 text-emerald-400" />
-                </div>
-                <p className="text-sm font-bold text-slate-700">ไม่มีคำขอรออนุมัติในขณะนี้</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">คำขอทั้งหมดได้รับการตอบรับแล้ว 🎉</p>
-              </div>
-            ) : (
-              pending.slice(0, 5).map(b => (
-                <div key={b.id} className="group relative flex items-center justify-between gap-3 p-4 bg-slate-50/50 hover:bg-blue-50/20 rounded-2xl border border-slate-100 hover:border-blue-100 transition-all duration-200">
-                  <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-blue-500 rounded-r-full"></div>
-                  
-                  <div className="min-w-0 flex-1 pl-2">
-                    <p className="text-xs font-extrabold text-slate-800 truncate">{b.roomName}</p>
-                    <p className="text-[11px] font-bold text-indigo-600 truncate">{b.topic || "ไม่มีหัวข้อ"}</p>
-                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      <span className="text-[10px] font-bold text-slate-500 truncate">{b.userName}</span>
-                      <span className="text-slate-300 text-[10px]">|</span>
-                      <span className="text-[10px] font-semibold text-slate-500 truncate">{b.department || "ไม่ระบุหน่วยงาน"}</span>
-                      <span className="text-slate-300 text-[10px]">|</span>
-                      <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                        {b.startTime} - {b.endTime}
-                      </span>
-                    </div>
+              {/* Density legend */}
+              <div className="flex items-center justify-center gap-4 mt-3 flex-wrap">
+                {[
+                  { label: "ว่าง (0-24%)", color: "bg-emerald-400" },
+                  { label: "ปานกลาง (25-49%)", color: "bg-blue-400" },
+                  { label: "หนาแน่น (50-74%)", color: "bg-amber-400" },
+                  { label: "หนาแน่นมาก (75%+)", color: "bg-rose-400" },
+                ].map(l => (
+                  <div key={l.label} className="flex items-center gap-1.5">
+                    <div className={`h-2.5 w-2.5 rounded-full ${l.color}`} />
+                    <span className="text-[10px] font-semibold text-slate-500">{l.label}</span>
                   </div>
-                  
-                  <div className="flex gap-2 shrink-0">
-                    <button 
-                      onClick={() => mutation.mutate({ id: b.id, status: "approved" })}
-                      disabled={mutation.isPending}
-                      className="p-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl shadow-md shadow-emerald-500/10 hover:scale-105 transition-all" 
-                      title="อนุมัติการจอง"
-                    >
-                      <CheckCircle className="h-4.5 w-4.5" />
-                    </button>
-                    <button 
-                      onClick={() => mutation.mutate({ id: b.id, status: "rejected" })}
-                      disabled={mutation.isPending}
-                      className="p-2 bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-100 rounded-xl hover:scale-105 transition-all" 
-                      title="ปฏิเสธการจอง"
-                    >
-                      <XCircle className="h-4.5 w-4.5" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-          
-          <div className="p-4 border-t border-slate-50 bg-slate-50/50 rounded-b-3xl">
-            <Link to="/staff/bookings" className="text-xs text-blue-600 hover:text-blue-700 font-extrabold flex items-center justify-center gap-1 transition-colors group">
-              เข้าสู่ระบบจัดการคำขอทั้งหมด 
-              <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
-            </Link>
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
 
+      {/* ── Pending Bookings Quick Actions ── */}
+      <div className="bg-gradient-to-b from-white to-slate-50/80 backdrop-blur-md rounded-3xl border border-white shadow-xl shadow-slate-200/50 flex flex-col relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-40 h-40 bg-orange-50 rounded-full blur-2xl -mr-10 -mt-10 opacity-70 pointer-events-none"></div>
+
+        <div className="relative z-10 flex items-center justify-between px-7 pt-7 pb-5 border-b border-slate-100">
+          <div className="flex items-center gap-3">
+            <div className="p-3 rounded-2xl bg-gradient-to-br from-orange-100 to-rose-100 text-orange-600 shadow-inner border border-orange-50">
+              <Clock className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-black text-slate-800">คำขอรออนุมัติ</h3>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">รายการจองล่าสุดที่ต้องการตรวจสอบ</p>
+            </div>
+          </div>
+          {pending.length > 0 && (
+            <span className="text-xs font-extrabold bg-gradient-to-r from-orange-500 to-rose-500 text-white px-3 py-1 rounded-full shadow-md shadow-orange-500/20">
+              {pending.length} รายการ
+            </span>
+          )}
+        </div>
+        
+        <div className="flex-1 p-4 overflow-y-auto max-h-[260px] space-y-3 custom-scrollbar">
+          {pending.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-slate-400">
+              <div className="h-14 w-14 rounded-full bg-slate-50 flex items-center justify-center mb-3">
+                <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+              </div>
+              <p className="text-sm font-bold text-slate-700">ไม่มีคำขอรออนุมัติในขณะนี้</p>
+              <p className="text-[11px] text-slate-400 mt-0.5">คำขอทั้งหมดได้รับการตอบรับแล้ว 🎉</p>
+            </div>
+          ) : (
+            pending.slice(0, 5).map(b => (
+              <div key={b.id} className="group relative flex items-center justify-between gap-3 p-4 bg-slate-50/50 hover:bg-blue-50/20 rounded-2xl border border-slate-100 hover:border-blue-100 transition-all duration-200">
+                <div className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-blue-500 rounded-r-full"></div>
+                
+                <div className="min-w-0 flex-1 pl-2">
+                  <p className="text-xs font-extrabold text-slate-800 truncate">{b.roomName}</p>
+                  <p className="text-[11px] font-bold text-indigo-600 truncate">{b.topic || "ไม่มีหัวข้อ"}</p>
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    <span className="text-[10px] font-bold text-slate-500 truncate">{b.userName}</span>
+                    <span className="text-slate-300 text-[10px]">|</span>
+                    <span className="text-[10px] font-semibold text-slate-500 truncate">{b.department || "ไม่ระบุหน่วยงาน"}</span>
+                    <span className="text-slate-300 text-[10px]">|</span>
+                    <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                      {b.startTime} - {b.endTime}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="flex gap-2 shrink-0">
+                  <button 
+                    onClick={() => mutation.mutate({ id: b.id, status: "approved" })}
+                    disabled={mutation.isPending}
+                    className="p-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-xl shadow-md shadow-emerald-500/10 hover:scale-105 transition-all" 
+                    title="อนุมัติการจอง"
+                  >
+                    <CheckCircle className="h-4.5 w-4.5" />
+                  </button>
+                  <button 
+                    onClick={() => mutation.mutate({ id: b.id, status: "rejected" })}
+                    disabled={mutation.isPending}
+                    className="p-2 bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-100 rounded-xl hover:scale-105 transition-all" 
+                    title="ปฏิเสธการจอง"
+                  >
+                    <XCircle className="h-4.5 w-4.5" />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        
+        <div className="p-4 border-t border-slate-50 bg-slate-50/50 rounded-b-3xl">
+          <Link to="/staff/bookings" className="text-xs text-blue-600 hover:text-blue-700 font-extrabold flex items-center justify-center gap-1 transition-colors group">
+            เข้าสู่ระบบจัดการคำขอทั้งหมด 
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
+          </Link>
+        </div>
+      </div>
+
+      {/* ── Profile Editing Modal ── */}
       {isEditingProfile && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200" onClick={() => setIsEditingProfile(false)}>
           <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl relative" onClick={e => e.stopPropagation()}>

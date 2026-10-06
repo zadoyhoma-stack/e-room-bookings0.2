@@ -2,6 +2,18 @@ import * as XLSX from "xlsx";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 
+// Safe Date Formatter
+const safeFormatDate = (dateStr: string | null | undefined, formatStr: string): string => {
+  if (!dateStr) return "-";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return format(d, formatStr, { locale: th });
+  } catch {
+    return dateStr;
+  }
+};
+
 export const exportToExcel = (data: any[], filters: any, stats: any) => {
   const wb = XLSX.utils.book_new();
 
@@ -29,9 +41,9 @@ export const exportToExcel = (data: any[], filters: any, stats: any) => {
   // Sheet 2: Details
   const detailsData = data.map((b, idx) => ({
     "ลำดับ": idx + 1,
-    "วันที่จอง": b.date ? format(new Date(b.date), "dd MMM yyyy", { locale: th }) : "-",
-    "เวลาเริ่ม": b.startTime,
-    "เวลาสิ้นสุด": b.endTime,
+    "วันที่จอง": safeFormatDate(b.date, "dd MMM yyyy"),
+    "เวลาเริ่ม": b.startTime || "-",
+    "เวลาสิ้นสุด": b.endTime || "-",
     "ชื่อห้อง": b.roomName || "ไม่ระบุ",
     "ชื่อผู้จอง": b.userName || "-",
     "หน่วยงาน/คณะ": b.department || "-",

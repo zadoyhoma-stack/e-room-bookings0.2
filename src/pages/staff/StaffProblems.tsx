@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle, AlertTriangle, Image as ImageIcon } from "lucide-react";
+import { CheckCircle, AlertTriangle, Image as ImageIcon, FileSpreadsheet, FileIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Problem, ProblemStatus, ProblemUrgency } from "@/data/mockData";
+import { exportProblemsToExcel } from "@/lib/report/excelExport";
+import { exportProblemsToPdf } from "@/lib/report/pdfExport";
 import * as ds from "@/services/dataService";
 
 type Tab = "pending" | "resolved" | "all";
@@ -35,6 +37,25 @@ const StaffProblems = () => {
     return <span className={cn("text-xs font-bold px-3 py-1 rounded-full border", c.cls)}>{c.t}</span>;
   };
 
+  const handleExportExcel = () => {
+    try {
+      exportProblemsToExcel(filtered);
+      toast.success("ส่งออกรายงาน Excel สำเร็จ");
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาดในการส่งออก Excel");
+    }
+  };
+
+  const handleExportPdf = async () => {
+    try {
+      toast.info("กำลังสร้าง PDF...");
+      await exportProblemsToPdf(filtered);
+      toast.success("ส่งออกรายงาน PDF สำเร็จ");
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาดในการส่งออก PDF");
+    }
+  };
+
   return (
     <div className="space-y-8 font-['Kanit',sans-serif]">
       {/* Header */}
@@ -55,6 +76,22 @@ const StaffProblems = () => {
               มี {pendingCount} รายการรอรับเรื่อง
             </p>
           )}
+        </div>
+        
+        <div className="flex items-center gap-2 mt-4 sm:mt-0">
+          <button
+            onClick={handleExportExcel}
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs h-10 px-4 shadow-md shadow-emerald-600/20 transition-all"
+          >
+            <FileSpreadsheet className="w-4 h-4" /> ส่งออก Excel
+          </button>
+
+          <button
+            onClick={handleExportPdf}
+            className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs h-10 px-4 shadow-md shadow-rose-600/20 transition-all"
+          >
+            <FileIcon className="w-4 h-4" /> ส่งออก PDF
+          </button>
         </div>
       </div>
 

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { BarChart3, FileIcon, FileSpreadsheet, ShieldAlert } from "lucide-react";
+import { BarChart3, Download, FileIcon, FileSpreadsheet, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -9,11 +9,10 @@ import { ReportTabs, ReportTabType } from "@/components/admin/reports/ReportTabs
 import { ReportSummary } from "@/components/admin/reports/ReportSummary";
 import { ReportFilters } from "@/components/admin/reports/ReportFilters";
 import { BookingReportTable } from "@/components/admin/reports/BookingReportTable";
+import { RoomUsageChart } from "@/components/admin/reports/RoomUsageChart";
 import { ExportHistoryTable } from "@/components/admin/reports/ExportHistoryTable";
 import { ExportConfirmDialog } from "@/components/admin/reports/ExportConfirmDialog";
 import { ExportProgress } from "@/components/admin/reports/ExportProgress";
-import { EvaluationReportTable } from "@/components/admin/reports/EvaluationReportTable";
-import { ProblemReportTable } from "@/components/admin/reports/ProblemReportTable";
 
 import {
   ReportFilterState,
@@ -21,16 +20,15 @@ import {
   calculateReportStats,
   validateDateRange,
 } from "@/lib/report/reportUtils";
-import { exportToExcel, exportProblemsToExcel, exportEvaluationsToExcel } from "@/lib/report/excelExport";
-import { exportToPdf, exportProblemsToPdf, exportEvaluationsToPdf, exportBookingsOfficialToPdf } from "@/lib/report/pdfExport";
+import { exportToExcel } from "@/lib/report/excelExport";
+import { exportToPdf } from "@/lib/report/pdfExport";
 
 const Reports = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Active Tab State
-  const [activeTab, setActiveTab] = useState<ReportTabType>("booking");
-  const [exportContext, setExportContext] = useState<"booking" | "evaluation" | "problem" | "combined">("combined");
+  const [activeTab, setActiveTab] = useState<ReportTabType>("overview");
 
   // Export Confirmation Dialog State
   const [confirmExportType, setConfirmExportType] = useState<"Excel" | "PDF" | null>(null);
@@ -75,16 +73,6 @@ const Reports = () => {
   const { data: reports = [] } = useQuery<any[]>({
     queryKey: ["reports"],
     queryFn: () => ds.getReports(),
-  });
-
-  const { data: problems = [] } = useQuery<any[]>({
-    queryKey: ["admin_problems"],
-    queryFn: () => ds.getProblems(),
-  });
-
-  const { data: evaluations = [] } = useQuery<any[]>({
-    queryKey: ["admin_evaluations"],
-    queryFn: () => ds.getEvaluations(),
   });
 
   // Filtered dataset
@@ -134,37 +122,28 @@ const Reports = () => {
   });
 
   // Trigger Confirm Dialog
-  const handleOpenExportConfirm = (formatType: "Excel" | "PDF", context: "booking" | "evaluation" | "problem" | "combined" = "combined") => {
-    if (context === "combined" || context === "booking") {
-      if (filters.dateRange === "custom") {
-        const validation = validateDateRange(filters.startDate, filters.endDate);
-        if (!validation.isValid) {
-          toast({
-            title: "ข้อมูลตัวกรองไม่ถูกต้อง",
-            description: validation.errorMessage || "วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุด",
-            variant: "destructive",
-          });
-          return;
-        }
-      }
-      if (filteredBookings.length === 0 && context === "booking") {
-        toast({ title: "ไม่พบข้อมูลการจอง", description: "ไม่พบข้อมูลตามเงื่อนไขที่เลือก", variant: "destructive" });
+  const handleOpenExportConfirm = (formatType: "Excel" | "PDF") => {
+    if (filters.dateRange === "custom") {
+      const validation = validateDateRange(filters.startDate, filters.endDate);
+      if (!validation.isValid) {
+        toast({
+          title: "ข้อมูลตัวกรองไม่ถูกต้อง",
+          description: validation.errorMessage || "วันที่เริ่มต้นต้องไม่มากกว่าวันที่สิ้นสุด",
+          variant: "destructive",
+        });
         return;
       }
     }
-    if (context === "evaluation" && evaluations.length === 0) {
-      toast({ title: "ไม่พบข้อมูลการประเมิน", description: "ยังไม่มีข้อมูลผลการประเมินในระบบ", variant: "destructive" });
+
+    if (filteredBookings.length === 0) {
+      toast({
+        title: "ไม่พบข้อมูลการจอง",
+        description: "ไม่พบข้อมูลตามเงื่อนไขที่เลือก ไม่สามารถสร้างรายงานเปล่าได้",
+        variant: "destructive",
+      });
       return;
     }
-    if (context === "problem" && problems.length === 0) {
-      toast({ title: "ไม่พบข้อมูลการแจ้งปัญหา", description: "ยังไม่มีข้อมูลการแจ้งปัญหาในระบบ", variant: "destructive" });
-      return;
-    }
-    if (context === "combined" && filteredBookings.length === 0) {
-      toast({ title: "ไม่พบข้อมูลการจอง", description: "ไม่พบข้อมูลตามเงื่อนไขที่เลือก ไม่สามารถสร้างรายงานเปล่าได้", variant: "destructive" });
-      return;
-    }
-    setExportContext(context);
+
     setConfirmExportType(formatType);
   };
 
@@ -177,62 +156,38 @@ const Reports = () => {
 
     try {
       let fileName: string;
-      let reportType = "รายงานสรุปการจองห้องประชุม";
-      let recordCount = filteredBookings.length;
 
-      if (exportContext === "evaluation") {
-        // ====== Export เฉพาะประเมิน ======
-        reportType = "รายงานผลการประเมิน";
-        recordCount = evaluations.length;
-        if (formatType === "Excel") {
-          await exportEvaluationsToExcel(evaluations);
-          fileName = `ARIT-E-ROOMs_Evaluations_${new Date().toISOString().split('T')[0]}.xlsx`;
-        } else {
-          fileName = await exportEvaluationsToPdf(evaluations);
-        }
-      } else if (exportContext === "problem") {
-        // ====== Export เฉพาะปัญหา ======
-        reportType = "รายงานการแจ้งปัญหา";
-        recordCount = problems.length;
-        if (formatType === "Excel") {
-          await exportProblemsToExcel(problems);
-          fileName = `ARIT-E-ROOMs_Problem_Reports_${new Date().toISOString().split('T')[0]}.xlsx`;
-        } else {
-          fileName = await exportProblemsToPdf(problems);
-        }
-      } else if (exportContext === "booking") {
-        // ====== Export เฉพาะการจอง ======
-        reportType = "รายงานการจอง";
-        recordCount = filteredBookings.length;
-        if (formatType === "Excel") {
-          fileName = await exportToExcel(filteredBookings, filters, statsData.summary, statsData.roomStats, [], []);
-        } else {
-          fileName = await exportBookingsOfficialToPdf(filteredBookings, "รายงานการจอง");
-        }
+      if (formatType === "Excel") {
+        fileName = exportToExcel(
+          filteredBookings,
+          filters,
+          statsData.summary,
+          statsData.roomStats
+        );
       } else {
-        // ====== Export รวมทุกอย่าง (combined) ======
-        if (formatType === "Excel") {
-          fileName = await exportToExcel(filteredBookings, filters, statsData.summary, statsData.roomStats, problems, evaluations);
-        } else {
-          fileName = await exportToPdf(filteredBookings, filters, statsData.summary, statsData.roomStats, problems, evaluations);
-        }
+        fileName = await exportToPdf(
+          filteredBookings,
+          filters,
+          statsData.summary,
+          statsData.roomStats
+        );
       }
 
       // Record export history audit log to DB
       createReportMutation.mutate({
-        type: reportType,
+        type: "รายงานสรุปการจองห้องประชุม",
         room: filters.room === "all" ? "ทุกห้อง" : filters.room,
         format: formatType,
         dateFrom: filters.startDate || undefined,
         dateTo: filters.endDate || undefined,
         filters: filters,
         fileName: fileName,
-        recordCount: recordCount,
+        recordCount: filteredBookings.length,
       });
 
       toast({
         title: `✓ ส่งออกรายงาน ${formatType} สำเร็จ!`,
-        description: `ไฟล์ ${fileName} ถูกดาวน์โหลดเรียบร้อยแล้ว (${recordCount} รายการ)`,
+        description: `ไฟล์ ${fileName} ถูกดาวน์โหลดเรียบร้อยแล้ว (${filteredBookings.length} รายการ)`,
       });
     } catch (err: any) {
       console.error("Export error:", err);
@@ -270,9 +225,9 @@ const Reports = () => {
       const reStats = calculateReportStats(reFiltered, rooms);
 
       if ((report.format || "").toUpperCase() === "EXCEL") {
-        exportToExcel(reFiltered, savedFilters, reStats.summary, reStats.roomStats, problems, evaluations);
+        exportToExcel(reFiltered, savedFilters, reStats.summary, reStats.roomStats);
       } else {
-        await exportToPdf(reFiltered, savedFilters, reStats.summary, reStats.roomStats, problems, evaluations);
+        await exportToPdf(reFiltered, savedFilters, reStats.summary, reStats.roomStats);
       }
 
       toast({
@@ -315,11 +270,30 @@ const Reports = () => {
             <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-600/20">
               <BarChart3 className="w-6 h-6" />
             </div>
-            ออกรายงาน (Reports)
+            รายงานและสถิติ (Reports & Analytics)
           </h1>
           <p className="text-slate-500 text-xs sm:text-sm mt-1.5 font-medium">
-            จัดทำรายงานข้อมูลการจอง ผลประเมิน และการแจ้งปัญหา สำหรับการบริหารจัดการห้องประชุม ARIT E-ROOMs
+            ดูข้อมูลการจอง วิเคราะห์การใช้งาน และจัดทำรายงานสำหรับการบริหารจัดการห้องประชุม ARIT E-ROOMs
           </p>
+        </div>
+
+        {/* Header Quick Actions */}
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            onClick={() => handleOpenExportConfirm("Excel")}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs h-10 px-4 shadow-md shadow-emerald-600/20"
+          >
+            <FileSpreadsheet className="w-4 h-4 mr-1.5" /> ส่งออก Excel
+          </Button>
+
+          <Button
+            size="sm"
+            onClick={() => handleOpenExportConfirm("PDF")}
+            className="bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold text-xs h-10 px-4 shadow-md shadow-rose-600/20"
+          >
+            <FileIcon className="w-4 h-4 mr-1.5" /> ส่งออก PDF
+          </Button>
         </div>
       </div>
 
@@ -328,66 +302,45 @@ const Reports = () => {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         bookingCount={filteredBookings.length}
-        evaluationCount={evaluations.length}
-        problemCount={problems.length}
         historyCount={reports.length}
       />
 
-
-
-      {/* TAB: รายงานการจอง */}
-      {activeTab === "booking" && (
+      {/* 3. TAB 1: Overview & Analytics */}
+      {activeTab === "overview" && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <ReportFilters filters={filters} setFilters={setFilters} rooms={rooms} users={users} />
+          {/* KPI Summary 5 Cards */}
           <ReportSummary stats={statsData.summary} />
-          <BookingReportTable
-            bookings={filteredBookings}
-            onExportExcel={() => handleOpenExportConfirm("Excel", "booking")}
-            onExportPdf={() => handleOpenExportConfirm("PDF", "booking")}
-            isExporting={isExporting}
-          />
+
+          {/* Visual Charts */}
+          <RoomUsageChart popularRoomsData={popularRoomsData} roomUsageData={roomUsagePieData} />
         </div>
       )}
 
-      {/* TAB: รายงานประเมิน */}
-      {activeTab === "evaluation" && (
-        <div className="animate-in fade-in duration-300">
-          <EvaluationReportTable
-            evaluations={evaluations}
-            onExportExcel={() => handleOpenExportConfirm("Excel", "evaluation")}
-            onExportPdf={() => handleOpenExportConfirm("PDF", "evaluation")}
-            isExporting={isExporting}
-          />
-        </div>
-      )}
-
-      {/* TAB: รายงานปัญหา */}
-      {activeTab === "problem" && (
-        <div className="animate-in fade-in duration-300">
-          <ProblemReportTable
-            problems={problems}
-            onExportExcel={() => handleOpenExportConfirm("Excel", "problem")}
-            onExportPdf={() => handleOpenExportConfirm("PDF", "problem")}
-            isExporting={isExporting}
-          />
-        </div>
-      )}
-
-      {/* TAB: รายงานรวม (เดิม) */}
+      {/* 4. TAB 2: Data Report & Export */}
       {activeTab === "data" && (
         <div className="space-y-6 animate-in fade-in duration-300">
-          <ReportFilters filters={filters} setFilters={setFilters} rooms={rooms} users={users} />
+          {/* Filter Bar with Quick Date Presets */}
+          <ReportFilters
+            filters={filters}
+            setFilters={setFilters}
+            rooms={rooms}
+            users={users}
+          />
+
+          {/* KPI Summary Mini Bar */}
           <ReportSummary stats={statsData.summary} />
+
+          {/* Booking Data Table with Quick Export Bar & Pagination */}
           <BookingReportTable
             bookings={filteredBookings}
-            onExportExcel={() => handleOpenExportConfirm("Excel", "combined")}
-            onExportPdf={() => handleOpenExportConfirm("PDF", "combined")}
+            onExportExcel={() => handleOpenExportConfirm("Excel")}
+            onExportPdf={() => handleOpenExportConfirm("PDF")}
             isExporting={isExporting}
           />
         </div>
       )}
 
-      {/* TAB: ประวัติการดาวน์โหลด */}
+      {/* 5. TAB 3: Export History */}
       {activeTab === "history" && (
         <div className="animate-in fade-in duration-300">
           <ExportHistoryTable

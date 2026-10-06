@@ -236,9 +236,19 @@ export async function getRooms(): Promise<Room[]> {
 
 function autoExpireLocalBookings(bookings: Booking[]): Booking[] {
   if (!bookings || bookings.length === 0) return bookings;
-  const now = new Date();
-  const currentDate = now.toISOString().split('T')[0];
-  const currentHour = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+  
+  const formatterDate = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Bangkok',
+    year: 'numeric', month: '2-digit', day: '2-digit'
+  });
+  const formatterTime = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Bangkok',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  });
+  
+  const currentDate = formatterDate.format(new Date());
+  const currentHour = formatterTime.format(new Date());
+  
   let changed = false;
 
   const updated = bookings.map(b => {
@@ -355,7 +365,7 @@ export async function updateBookingStatus(id: string, status: string): Promise<B
 export async function updateRoomStatus(id: string, status: "available" | "maintenance"): Promise<Room> {
   const apiResult = await tryFetch<Room>(`/api/rooms/${id}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify({ status }),
   });
   if (apiResult) {
@@ -377,7 +387,7 @@ export async function updateRoomStatus(id: string, status: "available" | "mainte
 export async function updateRoom(id: string, updates: Partial<Room>): Promise<Room> {
   const apiResult = await tryFetch<Room>(`/api/rooms/${id}`, {
     method: "PATCH",
-    headers: { "Content-Type": "application/json" },
+    headers: getAuthHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(updates),
   });
   if (apiResult) {

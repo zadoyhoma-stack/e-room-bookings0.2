@@ -1,15 +1,42 @@
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+import { saveAs } from "file-saver";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { ReportFilterState, ReportSummaryStats, RoomStatistic, getStatusThaiText } from "./reportUtils";
 
-export function exportToExcel(
+/** Helper to apply border to a cell */
+function applyBorder(cell: ExcelJS.Cell) {
+  cell.border = {
+    top: { style: 'thin', color: { argb: 'FF000000' } },
+    left: { style: 'thin', color: { argb: 'FF000000' } },
+    bottom: { style: 'thin', color: { argb: 'FF000000' } },
+    right: { style: 'thin', color: { argb: 'FF000000' } }
+  };
+}
+
+/** Helper to apply header style to a cell */
+function applyHeaderStyle(cell: ExcelJS.Cell) {
+  cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  cell.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF475569' } // Slate-600
+  };
+  cell.alignment = { vertical: 'middle', horizontal: 'center' };
+  applyBorder(cell);
+}
+
+export async function exportToExcel(
   bookings: any[],
   filters: ReportFilterState,
   stats: ReportSummaryStats,
-  roomStats: RoomStatistic[]
-): string {
-  const wb = XLSX.utils.book_new();
+  roomStats: RoomStatistic[],
+  problems: any[] = [],
+  evaluations: any[] = []
+): Promise<void> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'ARIT E-ROOMs';
+  wb.created = new Date();
 
   // Format date range text for header
   let dateRangeText = "ทั้งหมด";
@@ -28,146 +55,269 @@ export function exportToExcel(
   }
 
   // ==================== Sheet 1: Summary ====================
-  const summaryData = [
-    ["ระบบจองห้องประชุมออนไลน์ ARIT E-ROOMs"],
-    ["รายงานสรุปการใช้ห้องประชุม"],
-    ["สำนักวิทยบริการและเทคโนโลยีสารสนเทศ มหาวิทยาลัยราชภัฏมหาสารคาม"],
-    [""],
-    ["วันที่พิมพ์รายงาน:", format(new Date(), "dd MMMM yyyy HH:mm น.", { locale: th })],
-    [""],
-    ["[เงื่อนไขตัวกรองข้อมูล]"],
-    ["ช่วงวันที่:", dateRangeText],
-    ["ห้องประชุม:", filters.room === "all" ? "ทุกห้อง" : filters.room],
-    ["สถานะ:", filters.status === "all" ? "ทุกสถานะ" : getStatusThaiText(filters.status)],
-    ["ผู้จอง:", filters.userName && filters.userName !== "all" ? filters.userName : "ทั้งหมด"],
-    ["คำค้นหา:", filters.search || "-"],
-    [""],
-    ["[สรุปสถิติการใช้งาน]"],
-    ["จำนวนการจองทั้งหมด:", stats.total],
-    ["จำนวนที่อนุมัติ/ใช้งาน:", stats.approved],
-    ["จำนวนที่รออนุมัติ:", stats.pending],
-    ["จำนวนที่ปฏิเสธ:", stats.rejected],
-    ["จำนวนที่ยกเลิก:", stats.cancelled],
-    ["ห้องประชุมยอดนิยม:", `${stats.popularRoom.name} (${stats.popularRoom.count} ครั้ง)`],
+  const wsSummary = wb.addWorksheet('หน้าสรุปข้อมูล (Summary)'); // Gridlines default to true
+
+  wsSummary.columns = [
+    { width: 45 }, { width: 55 }
   ];
 
-  const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
-  
-  // Set column widths for Sheet 1
-  wsSummary["!cols"] = [{ wch: 25 }, { wch: 45 }];
+  // Original plain layout
+  wsSummary.addRow(["ระบบจองห้องประชุมออนไลน์ ARIT E-ROOMs"]);
+  wsSummary.getCell('A1').font = { bold: true };
+  wsSummary.addRow(["รายงานสรุปการใช้ห้องประชุม"]);
+  wsSummary.addRow(["สำนักวิทยบริการและเทคโนโลยีสารสนเทศ มหาวิทยาลัยราชภัฏมหาสารคาม"]);
+  wsSummary.addRow([]);
+  wsSummary.addRow(["วันที่พิมพ์รายงาน:", format(new Date(), "dd MMMM yyyy เวลา HH:mm น.", { locale: th })]);
+  wsSummary.addRow([]);
 
-  XLSX.utils.book_append_sheet(wb, wsSummary, "ARIT E-ROOMs Summary");
+  wsSummary.addRow(["[เงื่อนไขที่ใช้กรองข้อมูล]"]);
+  wsSummary.lastRow!.getCell(1).font = { bold: true };
+  
+  wsSummary.addRow(["ช่วงวันที่:", dateRangeText]);
+  wsSummary.addRow(["ห้องประชุม:", filters.room === "all" ? "ทุกห้อง" : filters.room]);
+  wsSummary.addRow(["สถานะการจอง:", filters.status === "all" ? "ทุกสถานะ" : getStatusThaiText(filters.status)]);
+  wsSummary.addRow(["ผู้จอง:", filters.userName && filters.userName !== "all" ? filters.userName : "ทั้งหมด"]);
+  wsSummary.addRow(["คำค้นหาเพิ่มเติม:", filters.search || "-"]);
+  
+  wsSummary.addRow([]);
+
+  wsSummary.addRow(["[สรุปสถิติการใช้งานห้องประชุม]"]);
+  wsSummary.lastRow!.getCell(1).font = { bold: true };
+
+  wsSummary.addRow(["จำนวนการจองทั้งหมด:", `${stats.total} รายการ`]);
+  wsSummary.addRow(["จำนวนที่อนุมัติ/ใช้งาน:", `${stats.approved} รายการ`]);
+  wsSummary.addRow(["จำนวนที่รออนุมัติ:", `${stats.pending} รายการ`]);
+  wsSummary.addRow(["จำนวนที่ปฏิเสธ:", `${stats.rejected} รายการ`]);
+  wsSummary.addRow(["จำนวนที่ยกเลิก:", `${stats.cancelled} รายการ`]);
+  wsSummary.addRow(["ห้องประชุมยอดนิยมอันดับ 1:", stats.popularRoom.name !== "-" ? `${stats.popularRoom.name} (${stats.popularRoom.count} ครั้ง)` : "-"]);
 
   // ==================== Sheet 2: Booking Details ====================
-  const detailsHeader = [
-    "ลำดับ",
-    "วันที่จอง",
-    "เวลา",
-    "ห้องประชุม",
-    "ผู้จอง",
-    "อีเมล/หน่วยงาน",
-    "วัตถุประสงค์",
-    "สถานะ",
-    "วันที่สร้างรายการ",
+  const wsDetails = wb.addWorksheet('รายละเอียดการจอง (Details)');
+  wsDetails.columns = [
+    { header: "ลำดับ", key: "index", width: 10 },
+    { header: "วันที่จอง", key: "date", width: 18 },
+    { header: "เวลา", key: "time", width: 18 },
+    { header: "ห้องประชุม", key: "room", width: 35 },
+    { header: "ผู้จอง", key: "user", width: 30 },
+    { header: "อีเมล/หน่วยงาน", key: "dept", width: 35 },
+    { header: "วัตถุประสงค์", key: "topic", width: 45 },
+    { header: "สถานะ", key: "status", width: 18 },
+    { header: "วันที่สร้างรายการ", key: "created", width: 22 },
   ];
 
-  const detailsRows = bookings.map((b, idx) => {
+  // Style Header
+  wsDetails.getRow(1).eachCell(applyHeaderStyle);
+
+  bookings.forEach((b, idx) => {
     let dateStr = "-";
     if (b.date) {
-      try {
-        dateStr = format(new Date(b.date), "dd/MM/yyyy", { locale: th });
-      } catch {
-        dateStr = b.date;
-      }
+      try { dateStr = format(new Date(b.date), "dd/MM/yyyy", { locale: th }); } catch { dateStr = b.date; }
     }
-
     let createdStr = "-";
     if (b.createdAt) {
-      try {
-        createdStr = format(new Date(b.createdAt), "dd/MM/yyyy HH:mm", { locale: th });
-      } catch {
-        createdStr = String(b.createdAt);
-      }
+      try { createdStr = format(new Date(b.createdAt), "dd/MM/yyyy HH:mm", { locale: th }); } catch { createdStr = String(b.createdAt); }
     }
 
-    return [
-      idx + 1,
-      dateStr,
-      `${b.startTime || ""} - ${b.endTime || ""}`,
-      b.roomName || "ไม่ระบุห้อง",
-      b.userName || "-",
-      b.department || b.email || "-",
-      b.topic || "-",
-      getStatusThaiText(b.status),
-      createdStr,
-    ];
+    const row = wsDetails.addRow({
+      index: idx + 1,
+      date: dateStr,
+      time: `${b.startTime || ""} - ${b.endTime || ""}`,
+      room: b.roomName || "ไม่ระบุห้อง",
+      user: b.userName || "-",
+      dept: b.department || b.email || "-",
+      topic: b.topic || "-",
+      status: getStatusThaiText(b.status),
+      created: createdStr,
+    });
+
+    row.eachCell((cell, colNum) => {
+      applyBorder(cell);
+      if ([1, 2, 3, 8, 9].includes(colNum)) { // Center align index, dates, times, status
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      } else {
+        cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+      }
+    });
   });
 
-  const wsDetails = XLSX.utils.aoa_to_sheet([detailsHeader, ...detailsRows]);
-
-  // Set column widths for Sheet 2
-  wsDetails["!cols"] = [
-    { wch: 8 },  // ลำดับ
-    { wch: 14 }, // วันที่จอง
-    { wch: 16 }, // เวลา
-    { wch: 22 }, // ห้องประชุม
-    { wch: 22 }, // ผู้จอง
-    { wch: 25 }, // อีเมล/หน่วยงาน
-    { wch: 30 }, // วัตถุประสงค์
-    { wch: 14 }, // สถานะ
-    { wch: 18 }, // วันที่สร้างรายการ
-  ];
-
-  XLSX.utils.book_append_sheet(wb, wsDetails, "Booking Details");
-
   // ==================== Sheet 3: Room Statistics ====================
-  const roomStatsHeader = [
-    "ห้องประชุม",
-    "จำนวนการจองทั้งหมด",
-    "อนุมัติ",
-    "รออนุมัติ",
-    "ปฏิเสธ",
-    "ยกเลิก",
+  const wsRoomStats = wb.addWorksheet('สถิติรายห้อง (Room Stats)');
+  wsRoomStats.columns = [
+    { header: "ห้องประชุม", key: "room", width: 35 },
+    { header: "จำนวนการจองทั้งหมด", key: "total", width: 22 },
+    { header: "อนุมัติ", key: "approved", width: 15 },
+    { header: "รออนุมัติ", key: "pending", width: 15 },
+    { header: "ปฏิเสธ", key: "rejected", width: 15 },
+    { header: "ยกเลิก", key: "cancelled", width: 15 },
   ];
 
-  const roomStatsRows = roomStats.map((r) => [
-    r.roomName,
-    r.total,
-    r.approved,
-    r.pending,
-    r.rejected,
-    r.cancelled,
-  ]);
+  wsRoomStats.getRow(1).eachCell(applyHeaderStyle);
 
-  const wsRoomStats = XLSX.utils.aoa_to_sheet([roomStatsHeader, ...roomStatsRows]);
+  roomStats.forEach((r) => {
+    const row = wsRoomStats.addRow({
+      room: r.roomName,
+      total: r.total,
+      approved: r.approved,
+      pending: r.pending,
+      rejected: r.rejected,
+      cancelled: r.cancelled,
+    });
+    row.eachCell((cell, colNum) => {
+      applyBorder(cell);
+      if (colNum > 1) cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      else cell.alignment = { vertical: 'middle', horizontal: 'left' };
+    });
+  });
 
-  // Set column widths for Sheet 3
-  wsRoomStats["!cols"] = [
-    { wch: 25 }, // ห้องประชุม
-    { wch: 18 }, // ทั้งหมด
-    { wch: 12 }, // อนุมัติ
-    { wch: 12 }, // รออนุมัติ
-    { wch: 12 }, // ปฏิเสธ
-    { wch: 12 }, // ยกเลิก
+  // ==================== Sheet 4: Problem Reports ====================
+  const wsProblems = wb.addWorksheet('แจ้งปัญหา (Problem Reports)');
+  wsProblems.columns = [
+    { header: "ลำดับ", key: "index", width: 10 },
+    { header: "วันที่แจ้ง", key: "date", width: 22 },
+    { header: "ห้อง", key: "room", width: 25 },
+    { header: "ประเภทปัญหา", key: "type", width: 25 },
+    { header: "รายละเอียด", key: "details", width: 50 },
+    { header: "ความเร่งด่วน", key: "urgency", width: 18 },
+    { header: "สถานะ", key: "status", width: 18 },
   ];
 
-  XLSX.utils.book_append_sheet(wb, wsRoomStats, "Room Statistics");
+  wsProblems.getRow(1).eachCell(applyHeaderStyle);
 
-  // ==================== Generate Filename ====================
-  const dateSuffix =
-    filters.dateRange === "custom" && filters.startDate && filters.endDate
-      ? `${filters.startDate}_to_${filters.endDate}`
-      : format(new Date(), "yyyy-MM-dd");
+  problems.forEach((p, idx) => {
+    let dateStr = p.reportedAt;
+    try { if (dateStr) dateStr = format(new Date(dateStr), "dd/MM/yyyy HH:mm", { locale: th }); } catch {}
+    let urgencyStr = p.urgency === 'high' ? 'สูง' : p.urgency === 'medium' ? 'ปานกลาง' : 'ต่ำ';
+    let statusStr = p.status === 'resolved' ? 'แก้ไขแล้ว' : 'รอดำเนินการ';
 
-  const sanitizedRoom =
-    filters.room !== "all"
-      ? `_${filters.room.replace(/[^a-zA-Z0-9\u0E00-\u0E7F]/g, "_")}`
-      : "";
+    const row = wsProblems.addRow({
+      index: idx + 1,
+      date: dateStr || "-",
+      room: p.roomId || "-", 
+      type: p.problemType || "-",
+      details: p.details || "-",
+      urgency: urgencyStr,
+      status: statusStr
+    });
+    row.eachCell((cell, colNum) => {
+      applyBorder(cell);
+      if ([1, 2, 6, 7].includes(colNum)) cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      else cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+    });
+  });
+
+  // ==================== Sheet 5: Evaluations ====================
+  const wsEvals = wb.addWorksheet('แบบประเมิน (Evaluations)');
+  wsEvals.columns = [
+    { header: "ลำดับ", key: "index", width: 10 },
+    { header: "วันที่ประเมิน", key: "date", width: 22 },
+    { header: "คะแนน (ดาว)", key: "rating", width: 18 },
+    { header: "ข้อเสนอแนะ", key: "feedback", width: 60 },
+  ];
+
+  wsEvals.getRow(1).eachCell(applyHeaderStyle);
+
+  evaluations.forEach((e, idx) => {
+    let dateStr = e.submittedAt;
+    try { if (dateStr) dateStr = format(new Date(dateStr), "dd/MM/yyyy HH:mm", { locale: th }); } catch {}
+    
+    const row = wsEvals.addRow({
+      index: idx + 1,
+      date: dateStr || "-",
+      rating: e.rating || 0,
+      feedback: e.feedback || "-"
+    });
+    row.eachCell((cell, colNum) => {
+      applyBorder(cell);
+      if ([1, 2, 3].includes(colNum)) cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      else cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+    });
+  });
+
+  // ==================== Generate Filename and Download ====================
+  let dateSuffix = "All_Time";
+  if (filters.dateRange === "today") dateSuffix = format(new Date(), "yyyyMMdd");
+  else if (filters.dateRange === "custom" && filters.startDate && filters.endDate) dateSuffix = `${filters.startDate}_to_${filters.endDate}`;
+  
+  let sanitizedRoom = "";
+  if (filters.room && filters.room !== "all") {
+    sanitizedRoom = "_" + filters.room.replace(/[^a-zA-Z0-9ก-๙]/g, "").substring(0, 20);
+  }
 
   const fileName = `ARIT-E-ROOMs_Report_${dateSuffix}${sanitizedRoom}.xlsx`;
+  
+  const buffer = await wb.xlsx.writeBuffer();
+  saveAs(new Blob([buffer]), fileName);
+}
 
-  // Write file
-  XLSX.writeFile(wb, fileName);
+// Standalone export functions for Problems and Evaluations
+export async function exportProblemsToExcel(problems: any[]): Promise<void> {
+  const wb = new ExcelJS.Workbook();
+  const wsProblems = wb.addWorksheet('แจ้งปัญหา (Problem Reports)');
+  wsProblems.columns = [
+    { header: "ลำดับ", key: "index", width: 10 },
+    { header: "วันที่แจ้ง", key: "date", width: 22 },
+    { header: "ห้อง", key: "room", width: 25 },
+    { header: "ประเภทปัญหา", key: "type", width: 25 },
+    { header: "รายละเอียด", key: "details", width: 50 },
+    { header: "ความเร่งด่วน", key: "urgency", width: 18 },
+    { header: "สถานะ", key: "status", width: 18 },
+  ];
+  wsProblems.getRow(1).eachCell(applyHeaderStyle);
 
-  return fileName;
+  problems.forEach((p, idx) => {
+    let dateStr = p.reportedAt;
+    try { if (dateStr) dateStr = format(new Date(dateStr), "dd/MM/yyyy HH:mm", { locale: th }); } catch {}
+    let urgencyStr = p.urgency === 'high' ? 'สูง' : p.urgency === 'medium' ? 'ปานกลาง' : 'ต่ำ';
+    let statusStr = p.status === 'resolved' ? 'แก้ไขแล้ว' : 'รอดำเนินการ';
+
+    const row = wsProblems.addRow({
+      index: idx + 1,
+      date: dateStr || "-",
+      room: p.roomId || "-", 
+      type: p.problemType || "-",
+      details: p.details || "-",
+      urgency: urgencyStr,
+      status: statusStr
+    });
+    row.eachCell((cell, colNum) => {
+      applyBorder(cell);
+      if ([1, 2, 6, 7].includes(colNum)) cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      else cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+    });
+  });
+
+  const buffer = await wb.xlsx.writeBuffer();
+  saveAs(new Blob([buffer]), `ARIT-E-ROOMs_Problem_Reports_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
+}
+
+export async function exportEvaluationsToExcel(evaluations: any[]): Promise<void> {
+  const wb = new ExcelJS.Workbook();
+  const wsEvals = wb.addWorksheet('แบบประเมิน (Evaluations)');
+  wsEvals.columns = [
+    { header: "ลำดับ", key: "index", width: 10 },
+    { header: "วันที่ประเมิน", key: "date", width: 22 },
+    { header: "คะแนน (ดาว)", key: "rating", width: 18 },
+    { header: "ข้อเสนอแนะ", key: "feedback", width: 60 },
+  ];
+  wsEvals.getRow(1).eachCell(applyHeaderStyle);
+
+  evaluations.forEach((e, idx) => {
+    let dateStr = e.submittedAt;
+    try { if (dateStr) dateStr = format(new Date(dateStr), "dd/MM/yyyy HH:mm", { locale: th }); } catch {}
+    
+    const row = wsEvals.addRow({
+      index: idx + 1,
+      date: dateStr || "-",
+      rating: e.rating || 0,
+      feedback: e.feedback || "-"
+    });
+    row.eachCell((cell, colNum) => {
+      applyBorder(cell);
+      if ([1, 2, 3].includes(colNum)) cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      else cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
+    });
+  });
+
+  const buffer = await wb.xlsx.writeBuffer();
+  saveAs(new Blob([buffer]), `ARIT-E-ROOMs_Evaluations_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
 }

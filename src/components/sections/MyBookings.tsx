@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { GlassCard } from "@/components/shared/GlassCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { BookingCountdown } from "@/components/shared/BookingCountdown";
@@ -24,7 +25,8 @@ interface MyBookingsProps {
 }
 
 export const MyBookings = ({ bookings = [], onCancel, onAddToCalendar }: MyBookingsProps) => {
-  const { currentUser, setRole } = useAuth();
+  const { currentUser } = useAuth();
+  const navigate = useNavigate();
 
   // Filter bookings for the current user
   const userBookings = useMemo(() => {
@@ -52,7 +54,7 @@ export const MyBookings = ({ bookings = [], onCancel, onAddToCalendar }: MyBooki
                   variant="ghost"
                   size="sm"
                   className="text-xs rounded-lg"
-                  onClick={() => setRole('student')}
+                  onClick={() => navigate('/')}
                 >
                   <LogIn className="mr-1 h-3 w-3" />
                   เข้าสู่ระบบ (นักศึกษา)

@@ -17,7 +17,7 @@ export const SummaryCards = ({ totalRooms, availableRooms, inUseRooms, maintenan
             <LayoutGrid className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-[#65676b] dark:text-[#b0b3b8]">ห้องทั้งหมด</p>
+            <p className="text-[13px] font-semibold text-[#65676b] dark:text-[#b0b3b8]">ห้องประชุมที่มีทั้งหมด</p>
             <p className="text-2xl font-bold text-[#050505] dark:text-[#e4e6eb] leading-none mt-1">{totalRooms}</p>
           </div>
         </div>
@@ -30,7 +30,7 @@ export const SummaryCards = ({ totalRooms, availableRooms, inUseRooms, maintenan
             <CheckCircle2 className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-[#65676b] dark:text-[#b0b3b8]">ห้องว่าง</p>
+            <p className="text-[13px] font-semibold text-[#65676b] dark:text-[#b0b3b8]">ห้องว่างพร้อมใช้งาน</p>
             <p className="text-2xl font-bold text-[#050505] dark:text-[#e4e6eb] leading-none mt-1">{availableRooms}</p>
           </div>
         </div>
@@ -43,7 +43,7 @@ export const SummaryCards = ({ totalRooms, availableRooms, inUseRooms, maintenan
             <MonitorPlay className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-[#65676b] dark:text-[#b0b3b8]">ถูกจองใช้งาน</p>
+            <p className="text-[13px] font-semibold text-[#65676b] dark:text-[#b0b3b8]">อยู่ระหว่างใช้งาน</p>
             <p className="text-2xl font-bold text-[#050505] dark:text-[#e4e6eb] leading-none mt-1">{inUseRooms}</p>
           </div>
         </div>
@@ -56,7 +56,7 @@ export const SummaryCards = ({ totalRooms, availableRooms, inUseRooms, maintenan
             <Wrench className="w-4 h-4" />
           </div>
           <div>
-            <p className="text-[13px] font-semibold text-[#65676b] dark:text-[#b0b3b8]">ปิดปรับปรุง</p>
+            <p className="text-[13px] font-semibold text-[#65676b] dark:text-[#b0b3b8]">งดให้บริการ</p>
             <p className="text-2xl font-bold text-[#050505] dark:text-[#e4e6eb] leading-none mt-1">{maintenanceRooms}</p>
           </div>
         </div>

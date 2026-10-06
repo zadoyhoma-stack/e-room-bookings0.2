@@ -72,8 +72,8 @@ const Admin = () => {
         <div className="px-5 pt-6 pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="h-9 w-9 bg-gradient-to-br from-blue-600 to-sky-500 rounded-lg flex items-center justify-center shadow-md shadow-blue-500/30">
-                <Users className="h-4.5 w-4.5 text-white" />
+              <div className="h-10 w-10 shrink-0">
+                <img src="/university-logo.png" alt="University Logo" className="w-full h-full object-contain drop-shadow-sm" />
               </div>
               <div className="leading-tight">
                 <p className="text-[15px] font-extrabold text-slate-800 tracking-tight">ARIT E-ROOMs</p>
@@ -119,10 +119,28 @@ const Admin = () => {
         </nav>
 
         {/* Footer */}
-        <div className="px-4 pb-5 pt-3 border-t border-slate-100 space-y-1.5">
+        <div className="px-4 pb-5 pt-3 border-t border-slate-100 flex flex-col gap-3 mt-auto">
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-sky-400 to-blue-600 p-4 text-white shadow-lg shadow-sky-200">
+            <div className="relative z-10">
+              <p className="text-sm font-bold mb-1">ARIT Support</p>
+              <p className="text-xs text-sky-50 mb-3 leading-relaxed opacity-90">มีข้อเสนอแนะหรือต้องการอัปเดตระบบ? ติดต่อผู้พัฒนาระบบโดยตรงได้เลยครับ</p>
+              <a 
+                href="https://mail.google.com/mail/?view=cm&fs=1&to=fiwteerapongchunchoo@gmail.com&su=ติดต่อผู้พัฒนาระบบ (ARIT E-ROOMs)"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-semibold bg-white/20 hover:bg-white/30 transition-colors rounded-lg px-3 py-2 backdrop-blur-sm w-full flex items-center justify-center gap-1.5 cursor-pointer relative z-20"
+              >
+                ติดต่อเจ้าหน้าที่ธีรพงศ์ ชื่นชู
+              </a>
+            </div>
+            {/* Decor blobs */}
+            <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-white/10 rounded-full blur-xl"></div>
+            <div className="absolute top-0 -left-6 w-16 h-16 bg-white/10 rounded-full blur-lg"></div>
+          </div>
+
           <Button 
             variant="ghost" 
-            className="w-full justify-start gap-3.5 px-4 py-6 rounded-xl text-[15px] text-red-600 hover:text-red-700 hover:bg-red-50 transition-all font-bold"
+            className="w-full justify-start gap-3.5 px-4 py-4 rounded-xl text-[15px] text-red-600 hover:text-red-700 hover:bg-red-50 transition-all font-bold"
             onClick={() => {
               logout();
             }}

@@ -40,6 +40,19 @@ export const AdminDashboardModal = ({
   const { canApprove } = useAuth();
   const pendingBookings = bookings.filter((b) => b.status === "pending");
 
+  // Calculate real-time "In Use" bookings
+  const now = new Date();
+  // Using simple string matching for format 'yyyy-MM-dd' and 'HH:mm'
+  const currentDate = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, '0') + "-" + String(now.getDate()).padStart(2, '0');
+  const currentTime = String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
+
+  const inUseCount = bookings.filter(b => 
+    b.status === "approved" &&
+    b.date === currentDate &&
+    currentTime >= b.startTime &&
+    currentTime < b.endTime
+  ).length;
+
   // Prepare chart data
   const bookingsByDate = bookings.reduce((acc, booking) => {
     const date = booking.date;
@@ -146,11 +159,12 @@ export const AdminDashboardModal = ({
       ) : (
         <div className="space-y-6">
           {/* KPI Mini Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
               { label: "การจองทั้งหมด", value: bookings.length, color: "text-indigo-600", bg: "bg-indigo-50 dark:bg-indigo-950/60" },
-              { label: "รออนุมัติ", value: bookings.filter((b) => b.status === "pending").length, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/60" },
+              { label: "รออนุมัติ", value: pendingBookings.length, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-950/60" },
               { label: "อนุมัติแล้ว", value: bookings.filter((b) => b.status === "approved").length, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/60" },
+              { label: "กำลังใช้งาน", value: inUseCount, color: "text-blue-600", bg: "bg-blue-50 dark:bg-blue-950/60" },
               { label: "ยกเลิก/ปฏิเสธ", value: bookings.filter((b) => b.status === "cancelled" || b.status === "rejected").length, color: "text-rose-600", bg: "bg-rose-50 dark:bg-rose-950/60" },
             ].map((stat, idx) => (
               <div key={idx} className={`rounded-2xl p-4 border border-slate-100 dark:border-slate-800 ${stat.bg}`}>

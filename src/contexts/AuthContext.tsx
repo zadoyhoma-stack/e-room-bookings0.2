@@ -126,7 +126,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
         icon: 'question',
         showCancelButton: true,
         confirmButtonColor: '#ef4444',
-        cancelButtonColor: '#94a3b8',
+        cancelButtonColor: '#16a34a',
         confirmButtonText: 'ออกจากระบบ',
         cancelButtonText: 'ยกเลิก'
       }).then((result) => {

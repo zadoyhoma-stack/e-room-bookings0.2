@@ -1,10 +1,11 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle, XCircle, Clock, Search, Download, CalendarCheck, Users as UsersIcon } from "lucide-react";
+import { CheckCircle, XCircle, Clock, Search, Download, CalendarCheck, Users as UsersIcon, FileIcon } from "lucide-react";
 import { toast } from "sonner";
 import * as XLSX from "xlsx";
 import { cn } from "@/lib/utils";
 import { Booking, BookingStatus } from "@/data/mockData";
+import { exportBookingsOfficialToPdf } from "@/lib/report/pdfExport";
 import * as ds from "@/services/dataService";
 
 type Tab = "pending" | "approved" | "rejected" | "cancelled" | "all";
@@ -180,6 +181,17 @@ const StaffBookings = () => {
     XLSX.writeFile(wb, `Staff_Bookings_${tab}.xlsx`);
   };
 
+  const handleExportPdf = async () => {
+    try {
+      toast.info("กำลังสร้าง PDF...");
+      const tabLabel = tabs.find(t => t.key === tab)?.label || "ทั้งหมด";
+      await exportBookingsOfficialToPdf(filtered, tabLabel);
+      toast.success("ส่งออก PDF สำเร็จ");
+    } catch (error) {
+      toast.error("เกิดข้อผิดพลาดในการส่งออก PDF");
+    }
+  };
+
   const statusBadge = (s: BookingStatus) => {
     const cfg: Record<BookingStatus, { cls: string; icon: typeof Clock; text: string }> = {
       pending: { cls: "bg-orange-50 text-orange-700 border-orange-200", icon: Clock, text: "รอตรวจสอบ" },
@@ -213,9 +225,14 @@ const StaffBookings = () => {
             </p>
           )}
         </div>
-        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-xl shadow-md shadow-emerald-500/30 transition-all hover:-translate-y-1">
-          <Download className="h-4 w-4" /> ส่งออก Excel
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 text-sm font-bold bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white rounded-xl shadow-md shadow-emerald-500/30 transition-all hover:-translate-y-1">
+            <Download className="h-4 w-4" /> ส่งออก Excel
+          </button>
+          <button onClick={handleExportPdf} className="flex items-center gap-2 px-4 py-2 text-sm font-bold bg-gradient-to-r from-rose-500 to-pink-600 hover:from-rose-400 hover:to-pink-500 text-white rounded-xl shadow-md shadow-rose-500/30 transition-all hover:-translate-y-1">
+            <FileIcon className="h-4 w-4" /> ส่งออก PDF (ทางการ)
+          </button>
+        </div>
       </div>
 
       {/* Tabs + Search */}

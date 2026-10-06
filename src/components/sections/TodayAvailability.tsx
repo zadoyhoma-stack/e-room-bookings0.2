@@ -4,7 +4,7 @@ import { GlassCard } from "@/components/shared/GlassCard";
 import { TimeSlotChip } from "@/components/shared/TimeSlotChip";
 
 export const TodayAvailability = ({ bookings = [] }: { bookings?: Booking[] }) => {
-  const roomsToShow = mockRooms.filter(r => r.status !== 'maintenance');
+  const roomsToShow = mockRooms.filter(r => !r.hidden);
 
   const getSlotsForRoom = (roomId: string): TimeSlot[] => {
     const hours = ['08:00','09:00','10:00','11:00','12:00','13:00','14:00','15:00','16:00','17:00'];

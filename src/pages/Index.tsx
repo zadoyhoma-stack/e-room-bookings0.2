@@ -110,16 +110,24 @@ const Index = () => {
   const [filteredRooms, setFilteredRooms] = useState<Room[]>([]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(() => {
+    const now = new Date();
+    // ถ้าเลย 16:00 น. ไปแล้ว ให้ค่าเริ่มต้นเป็นวันพรุ่งนี้แทน
+    if (now.getHours() >= 16) {
+      now.setDate(now.getDate() + 1);
+    }
+    return now;
+  });
   const [selectedRoomId, setSelectedRoomId] = useState<string>('all');
   const [realTimeHH, setRealTimeHH] = useState(format(new Date(), 'HH:mm'));
   const [realTimeDate, setRealTimeDate] = useState(format(new Date(), 'yyyy-MM-dd'));
 
   // useMemo สำหรับ displayRooms — ไม่คำนวณซ้ำทุก render
   const displayRooms = useMemo(() => {
+    const visibleRooms = rooms.filter(r => !r.hidden);
     return selectedRoomId === 'all' 
-      ? rooms 
-      : rooms.filter(r => r.location.includes(`ชั้น ${selectedRoomId}`));
+      ? visibleRooms 
+      : visibleRooms.filter(r => r.location.includes(`ชั้น ${selectedRoomId}`));
   }, [rooms, selectedRoomId]);
 
   // ===== รวม 2 intervals เป็น interval เดียว (30 วินาที) =====

@@ -138,9 +138,6 @@ const ManageUsers = () => {
           </h1>
           <p className="text-slate-500 mt-2">จัดการบัญชีผู้ใช้ สิทธิ์การเข้าถึง และข้อมูลของนักศึกษา</p>
         </div>
-        <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-500/30 h-11 px-6">
-          <Plus className="w-4 h-4 mr-2" /> เพิ่มผู้ใช้ใหม่
-        </Button>
       </div>
 
       {/* Main Content Card */}

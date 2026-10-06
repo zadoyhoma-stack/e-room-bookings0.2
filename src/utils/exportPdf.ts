@@ -6,6 +6,18 @@ import { th } from "date-fns/locale";
 // Cache font ArrayBuffer to avoid re-fetching
 let fontCache: string | null = null;
 
+// Safe Date Formatter
+const safeFormatDate = (dateStr: string | null | undefined, formatStr: string): string => {
+  if (!dateStr) return "-";
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return format(d, formatStr, { locale: th });
+  } catch {
+    return dateStr;
+  }
+};
+
 async function loadSarabunFont(): Promise<string> {
   if (fontCache) return fontCache;
 
@@ -115,8 +127,8 @@ export const exportToPdf = async (data: any[], filters: any, stats: any): Promis
   } else {
     const tableData = data.map((b, idx) => [
       String(idx + 1),
-      b.date ? format(new Date(b.date), "dd/MM/yyyy", { locale: th }) : "-",
-      `${b.startTime}-${b.endTime}`,
+      safeFormatDate(b.date, "dd/MM/yyyy"),
+      `${b.startTime || "-"}-${b.endTime || "-"}`,
       b.roomName || "-",
       b.userName || "-",
       b.topic || "-",
